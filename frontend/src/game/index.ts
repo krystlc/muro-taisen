@@ -144,10 +144,10 @@ class MuroTaisen extends Phaser.Scene {
 
   placeFallingBlocksOnGrid() {
     if (!this.fallingBlocks) return;
-    this.fallingBlocks.getChildren().forEach((block) => {
-      const blockAsBlock = block as Block;
-      const gridX = Math.floor(blockAsBlock.x / CELL_SIZE);
-      const gridY = Math.floor(blockAsBlock.y / CELL_SIZE);
+    this.fallingBlocks.getChildren().forEach((child) => {
+      const block = child as Block;
+      const gridX = Math.floor(block.x / CELL_SIZE);
+      const gridY = Math.floor(block.y / CELL_SIZE);
       if (
         gridY >= 0 &&
         gridY < GRID_HEIGHT &&
@@ -155,18 +155,24 @@ class MuroTaisen extends Phaser.Scene {
         gridX < GRID_WIDTH &&
         this.solidMassGroup
       ) {
-        this.grid[gridY][gridX] = blockAsBlock.color; // Store the color in the grid
+        this.grid[gridY][gridX] = block.color; // Store the color in the grid
 
         const landedBlock = new Block(
           this,
           gridX * CELL_SIZE + CELL_SIZE / 2,
           gridY * CELL_SIZE + CELL_SIZE / 2,
           "block",
-          blockAsBlock.color,
-          blockAsBlock.hasOrb,
-          blockAsBlock.orbColor
+          block.color,
+          block.getHasOrb(),
+          block.getOrbColor()
         );
         this.solidMassGroup.add(landedBlock);
+
+        const orbColor = block.getOrbColor();
+        // Check for explosion if the landed block had an orb
+        if (block.getHasOrb() && orbColor !== null) {
+          this.checkForOrbExplosion(gridX, gridY, orbColor);
+        }
       }
       block.destroy(true); // Destroy the falling block sprite after it has landed
     });
@@ -176,6 +182,79 @@ class MuroTaisen extends Phaser.Scene {
   drawSolidMass() {
     // We might not need this if we are creating sprites in place
     // For now, let's keep it empty.
+  }
+
+  checkForOrbExplosion(startX: number, startY: number, orbColor: number) {
+    const visited: boolean[][] = Array.from({ length: GRID_HEIGHT }, () =>
+      Array(GRID_WIDTH).fill(false)
+    );
+    const connectedBlocks: { x: number; y: number }[] = [];
+    const queue: { x: number; y: number }[] = [{ x: startX, y: startY }];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const { x, y } = current;
+
+      if (
+        x < 0 ||
+        x >= GRID_WIDTH ||
+        y < 0 ||
+        y >= GRID_HEIGHT ||
+        visited[y][x] ||
+        this.grid[y][x] !== orbColor
+      ) {
+        continue;
+      }
+
+      visited[y][x] = true;
+      connectedBlocks.push({ x, y });
+
+      // Explore adjacent cells
+      queue.push({ x: x + 1, y });
+      queue.push({ x: x - 1, y });
+      queue.push({ x: x, y: y + 1 });
+      queue.push({ x: x, y: y - 1 });
+    }
+
+    if (connectedBlocks.length >= 1) {
+      // Explode even if it's just the landed block
+      this.explodeBlocks(connectedBlocks);
+    }
+  }
+
+  explodeBlocks(blocksToRemove: { x: number; y: number }[]) {
+    console.log("ex!", blocksToRemove);
+    blocksToRemove.forEach((blockToRemove) => {
+      if (!this.solidMassGroup) return;
+
+      const { x, y } = blockToRemove;
+      this.grid[y][x] = 0; // Clear the grid cell
+
+      // Find and destroy the corresponding visual block in the solidMassGroup
+      this.solidMassGroup.getChildren().forEach((solidBlock) => {
+        const sb = solidBlock as Block;
+        const blockGridX = Math.floor(sb.x / CELL_SIZE);
+        const blockGridY = Math.floor(sb.y / CELL_SIZE);
+        if (blockGridX === x && blockGridY === y) {
+          sb.destroy(true);
+        }
+      });
+    });
+
+    // Award points for the explosion
+    this.updateScore(blocksToRemove.length);
+
+    // Check for chain reactions (we'll implement this later)
+    this.checkForChainReactions();
+  }
+
+  updateScore(points: number) {
+    console.log(`Scored ${points} points!`);
+    // Implement actual score updating UI later
+  }
+
+  checkForChainReactions() {
+    // Implement logic to check for new solid connections and potential chain explosions
   }
 }
 

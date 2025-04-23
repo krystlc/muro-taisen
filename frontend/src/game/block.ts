@@ -4,8 +4,6 @@ import { CELL_SIZE } from "./constants";
 
 export class Block extends Phaser.GameObjects.Sprite {
   public color: number; // Phaser color value
-  public hasOrb: boolean;
-  public orbColor: number | null;
 
   constructor(
     scene: Phaser.Scene,
@@ -18,12 +16,20 @@ export class Block extends Phaser.GameObjects.Sprite {
   ) {
     super(scene, x, y, texture);
     this.color = color;
-    this.hasOrb = hasOrb;
-    this.orbColor = orbColor;
     this.setTint(color); // Apply color to the sprite
     this.setScale(CELL_SIZE / this.width); // Scale down the sprite
+
     scene.add.existing(this);
+
+    this.setData("hasOrb", hasOrb);
+    this.setData("orbColor", orbColor);
   }
 
-  // You can add methods for block-specific behavior here later
+  getHasOrb(): boolean {
+    return this.getData("hasOrb");
+  }
+
+  getOrbColor(): number | null {
+    return this.getData("orbColor");
+  }
 }
