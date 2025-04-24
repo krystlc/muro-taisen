@@ -11,6 +11,8 @@ class MuroTaisen extends Phaser.Scene {
     0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff,
   ]; // Example colors
   private solidMassGroup?: Phaser.GameObjects.Group; // To hold landed blocks visually
+  private originalFallSpeed: number = FALL_SPEED;
+  private fastFallSpeed: number = FALL_SPEED / 4; // Example: 4 times faster
 
   constructor() {
     super("MuroTaisen");
@@ -40,6 +42,132 @@ class MuroTaisen extends Phaser.Scene {
       callbackScope: this,
       loop: true,
     });
+
+    // Keyboard input
+    if (!this.input.keyboard) return;
+    this.input.keyboard.on("keydown-LEFT", this.moveLeft, this);
+    this.input.keyboard.on("keydown-RIGHT", this.moveRight, this);
+    this.input.keyboard.on("keydown-UP", this.rotateBlocks, this); // Using UP arrow for rotation
+    this.input.keyboard.on("keydown-DOWN", this.speedUp, this);
+    this.input.keyboard.on("keyup-DOWN", this.resetSpeed, this);
+    this.input.keyboard.on("keydown-SPACE", this.rotateBlocks, this); // Add SPACE for rotation
+  }
+
+  speedUp() {
+    if (!this.fallTimer) return;
+
+    this.fallTimer.delay = this.fastFallSpeed;
+  }
+
+  resetSpeed() {
+    if (!this.fallTimer) return;
+
+    this.fallTimer.delay = this.originalFallSpeed;
+  }
+
+  moveLeft() {
+    this.moveFallingBlocksHorizontally(-1);
+  }
+
+  moveRight() {
+    this.moveFallingBlocksHorizontally(1);
+  }
+
+  moveFallingBlocksHorizontally(direction: number) {
+    if (!this.fallingBlocks) return;
+
+    let canMove = true;
+    this.fallingBlocks.getChildren().forEach((block) => {
+      const blockAsBlock = block as Block;
+      const newX = blockAsBlock.x + direction * CELL_SIZE;
+      const gridX = Math.floor(newX / CELL_SIZE);
+
+      if (
+        gridX < 0 ||
+        gridX >= GRID_WIDTH ||
+        this.checkSolidCollision(newX, blockAsBlock.y)
+      ) {
+        canMove = false;
+      }
+    });
+
+    if (canMove) {
+      Phaser.Actions.IncX(
+        this.fallingBlocks.getChildren(),
+        direction * CELL_SIZE
+      );
+    }
+  }
+
+  rotateBlocks() {
+    if (!this.fallingBlocks) return;
+    const block1 = this.fallingBlocks.getChildren()[0] as Block;
+    const block2 = this.fallingBlocks.getChildren()[1] as Block;
+
+    if (!block1 || !block2) {
+      return; // Nothing to rotate if we don't have two blocks
+    }
+
+    const pivotX = (block1.x + block2.x) / 2;
+    const pivotY = (block1.y + block2.y) / 2;
+
+    const angle1 = Phaser.Math.Angle.BetweenPoints(
+      { x: pivotX, y: pivotY },
+      { x: block1.x, y: block1.y }
+    );
+    const distance1 = Phaser.Math.Distance.Between(
+      pivotX,
+      pivotY,
+      block1.x,
+      block1.y
+    );
+
+    const angle2 = Phaser.Math.Angle.BetweenPoints(
+      { x: pivotX, y: pivotY },
+      { x: block2.x, y: block2.y }
+    );
+    const distance2 = Phaser.Math.Distance.Between(
+      pivotX,
+      pivotY,
+      block2.x,
+      block2.y
+    );
+
+    const newAngle1 = angle1 + Math.PI / 2; // Rotate 90 degrees clockwise
+    const newAngle2 = angle2 + Math.PI / 2;
+
+    let newX1 = pivotX + Math.cos(newAngle1) * distance1;
+    let newY1 = pivotY + Math.sin(newAngle1) * distance1;
+
+    let newX2 = pivotX + Math.cos(newAngle2) * distance2;
+    let newY2 = pivotY + Math.sin(newAngle2) * distance2;
+
+    // Snap the new positions to the grid
+    newX1 = Math.round(newX1 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
+    newY1 = Math.round(newY1 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
+    newX2 = Math.round(newX2 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
+    newY2 = Math.round(newY2 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
+
+    // Basic bounds checking and collision check after snapping
+    const gridX1 = Math.floor(newX1 / CELL_SIZE);
+    const gridY1 = Math.floor(newY1 / CELL_SIZE);
+    const gridX2 = Math.floor(newX2 / CELL_SIZE);
+    const gridY2 = Math.floor(newY2 / CELL_SIZE);
+
+    const canRotate =
+      gridX1 >= 0 &&
+      gridX1 < GRID_WIDTH &&
+      gridY1 < GRID_HEIGHT &&
+      !this.checkSolidCollision(newX1, newY1) &&
+      gridX2 >= 0 &&
+      gridX2 < GRID_WIDTH &&
+      gridY2 < GRID_HEIGHT &&
+      !this.checkSolidCollision(newX2, newY2);
+
+    if (canRotate) {
+      block1.setPosition(newX1, newY1);
+      block2.setPosition(newX2, newY2);
+    }
   }
 
   update(time: number, delta: number) {
