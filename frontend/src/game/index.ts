@@ -1,397 +1,521 @@
+// src/scene.ts (Updated index.ts content)
 import Phaser from "phaser";
-import { GRID_WIDTH, CELL_SIZE, GRID_HEIGHT, FALL_SPEED } from "./constants";
-import { Block } from "./block";
+import { GRID_WIDTH, GRID_HEIGHT, CELL_SIZE, FALL_SPEED } from "./constants";
+import { Block, GemColor, BlockType } from "./block"; // Import new enums
+
+// Helper type for the grid
+type GameGrid = (Block | null)[][];
+enum BlockOrientation {
+  B1_TOP,
+  B1_RIGHT,
+  B1_BOTTOM,
+  B1_LEFT,
+}
+// --- Interface for Active Piece --- (Can be defined here or imported if in separate file)
+interface ActivePiece {
+  block1: Block;
+  block2: Block;
+  orientation: BlockOrientation; // 0: b1 top, 1: b1 right, 2: b1 bottom, 3: b1 left
+  // Store the 'pivot' grid coordinates for easier movement/rotation
+  pivotGridX: number;
+  pivotGridY: number;
+}
+// ---
 
 class MuroTaisen extends Phaser.Scene {
-  private grid: number[][] = []; // Representing the solid mass
-  private fallingBlocks?: Phaser.GameObjects.Group;
-  private nextFallingBlocks?: Phaser.GameObjects.Group;
-  private fallTimer?: Phaser.Time.TimerEvent;
-  private blockColors: number[] = [
-    0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff,
-  ]; // Example colors
-  private solidMassGroup?: Phaser.GameObjects.Group; // To hold landed blocks visually
-  private originalFallSpeed: number = FALL_SPEED;
-  private fastFallSpeed: number = FALL_SPEED / 4; // Example: 4 times faster
+  private grid: GameGrid = [];
+  private activePiece: ActivePiece | null = null;
+  private fallTimer: Phaser.Time.TimerEvent | null = null;
+  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
+  private moveDelayTimer: Phaser.Time.TimerEvent | null = null; // Prevent instant repeated moves
+  private moveRepeatDelay: number = 150; // ms delay for holding key down
+  private moveFirstDelay: number = 200; // ms delay before repeat starts
 
   constructor() {
     super("MuroTaisen");
   }
 
   preload() {
-    //  Load the assets for the game - Replace with your own assets
     this.load.setPath("assets");
-
-    this.load.image("block", "block.png");
+    this.load.image("orb", "orb.png"); // Use a simple square block for now
+    this.load.image("block", "block.png"); // Use a simple square block for now
+    // You might want different assets for Gems and Crash Gems later
+    // this.load.image("gem", "gem.png");
+    // this.load.image("crashGem", "crash_gem.png");
   }
 
   create() {
-    this.grid = Array.from({ length: GRID_HEIGHT }, () =>
-      Array(GRID_WIDTH).fill(0)
+    this.initializeGrid();
+    this.cursors = this.input.keyboard?.createCursorKeys(); // Enable keyboard input
+    this.spawnNewPiece();
+    this.setupFallTimer();
+    this.setupInput();
+
+    // Optional: Draw grid lines for debugging
+    this.drawGridLines();
+  }
+
+  // Initialize the grid with null values
+  initializeGrid() {
+    this.grid = []; // Clear existing grid if scene restarts
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      this.grid[y] = [];
+      for (let x = 0; x < GRID_WIDTH; x++) {
+        this.grid[y][x] = null;
+      }
+    }
+  }
+
+  // --- Piece Spawning ---
+  spawnNewPiece() {
+    const startX = Math.floor(GRID_WIDTH / 2) - 1; // Start near top-center
+    const startY = 0; // Start just above the visible grid
+
+    // Create two blocks with random colors (basic gems for now)
+    const color1 = this.getRandomColor();
+    const color2 = this.getRandomColor();
+    // TODO: Add logic to sometimes make one a Crash Gem
+    const gem1 = this.getRandomGem();
+    const gem2 = this.getRandomGem();
+
+    const block1 = new Block(
+      this,
+      startX,
+      startY - 1,
+      gem1.texture,
+      color1,
+      gem1.gemType
     );
-    this.fallingBlocks = this.add.group();
-    this.nextFallingBlocks = this.add.group();
-    this.solidMassGroup = this.add.group(); // Initialize the group for landed blocks
+    const block2 = new Block(
+      this,
+      startX,
+      startY,
+      gem2.texture,
+      color2,
+      gem2.gemType
+    );
 
-    this.spawnNewBlocks();
-    this.spawnNextBlocksPreview(); // We'll implement this later
+    this.activePiece = {
+      block1: block1,
+      block2: block2,
+      orientation: 0, // block1 on top
+      pivotGridX: startX,
+      pivotGridY: startY, // Pivot is usually the 'lower' or 'center' block
+    };
 
+    // Check for game over immediately
+    if (
+      !this.isValidPosition(
+        this.activePiece.pivotGridX,
+        this.activePiece.pivotGridY + 1,
+        this.activePiece.orientation
+      )
+    ) {
+      this.gameOver();
+    }
+  }
+
+  getRandomGem(): { gemType: BlockType; texture: string } {
+    const arr = [BlockType.GEM, BlockType.CRASH_GEM];
+    const gemType = Phaser.Math.RND.pick(arr);
+    let texture = "block";
+    if (gemType === BlockType.CRASH_GEM) texture = "orb";
+    return {
+      gemType,
+      texture,
+    };
+  }
+
+  getRandomColor(): GemColor {
+    const colors = Object.values(GemColor).filter(
+      (v) => typeof v === "number"
+    ) as number[];
+    const randomIndex = Phaser.Math.Between(0, colors.length - 1);
+    return colors[randomIndex] as GemColor;
+  }
+
+  // --- Falling Mechanism ---
+  setupFallTimer() {
+    if (this.fallTimer) {
+      this.fallTimer.remove(false);
+    }
     this.fallTimer = this.time.addEvent({
       delay: FALL_SPEED,
-      callback: this.moveFallingBlocksDown,
+      callback: this.movePieceDown,
       callbackScope: this,
       loop: true,
     });
-
-    // Keyboard input
-    if (!this.input.keyboard) return;
-    this.input.keyboard.on("keydown-LEFT", this.moveLeft, this);
-    this.input.keyboard.on("keydown-RIGHT", this.moveRight, this);
-    this.input.keyboard.on("keydown-UP", this.rotateBlocks, this); // Using UP arrow for rotation
-    this.input.keyboard.on("keydown-DOWN", this.speedUp, this);
-    this.input.keyboard.on("keyup-DOWN", this.resetSpeed, this);
-    this.input.keyboard.on("keydown-SPACE", this.rotateBlocks, this); // Add SPACE for rotation
   }
 
-  speedUp() {
-    if (!this.fallTimer) return;
+  movePieceDown() {
+    if (!this.activePiece) return;
 
-    this.fallTimer.delay = this.fastFallSpeed;
+    if (this.canMovePiece(0, 1)) {
+      this.activePiece.pivotGridY++;
+      this.updateActivePiecePositions();
+    } else {
+      // Cannot move down, lock the piece in place
+      this.lockPiece();
+    }
   }
 
-  resetSpeed() {
-    if (!this.fallTimer) return;
+  // --- Input Handling ---
+  setupInput() {
+    if (!this.cursors) return;
 
-    this.fallTimer.delay = this.originalFallSpeed;
+    // --- Horizontal Movement ---
+    this.cursors.left.on("down", () => this.handleMoveInput(-1, 0));
+    this.cursors.right.on("down", () => this.handleMoveInput(1, 0));
+
+    // Stop repeating when key is released
+    this.cursors.left.on("up", () => this.clearMoveTimer());
+    this.cursors.right.on("up", () => this.clearMoveTimer());
+
+    // --- Rotation ---
+    // Using 'space' for rotation example (or UP arrow)
+    this.input.keyboard?.on("keydown-SPACE", () => this.rotatePiece());
+    // this.cursors.up.on('down', () => this.rotatePiece()); // Alternative
+
+    // --- Soft Drop ---
+    this.cursors.down.on("down", () => this.handleSoftDrop());
+    this.cursors.down.on("up", () => this.resetFallSpeed()); // Optional: return to normal speed
   }
 
-  moveLeft() {
-    this.moveFallingBlocksHorizontally(-1);
-  }
+  handleMoveInput(deltaX: number, deltaY: number) {
+    this.clearMoveTimer(); // Clear previous timer if any
 
-  moveRight() {
-    this.moveFallingBlocksHorizontally(1);
-  }
+    // Try initial move
+    if (this.canMovePiece(deltaX, deltaY)) {
+      this.movePiece(deltaX, deltaY);
+    }
 
-  moveFallingBlocksHorizontally(direction: number) {
-    if (!this.fallingBlocks) return;
-
-    let canMove = true;
-    this.fallingBlocks.getChildren().forEach((block) => {
-      const blockAsBlock = block as Block;
-      const newX = blockAsBlock.x + direction * CELL_SIZE;
-      const gridX = Math.floor(newX / CELL_SIZE);
-
-      if (
-        gridX < 0 ||
-        gridX >= GRID_WIDTH ||
-        this.checkSolidCollision(newX, blockAsBlock.y)
-      ) {
-        canMove = false;
-      }
+    // Set timer for repeated movement if key is held
+    this.moveDelayTimer = this.time.delayedCall(this.moveFirstDelay, () => {
+      this.moveDelayTimer = this.time.addEvent({
+        delay: this.moveRepeatDelay,
+        callback: () => {
+          if (this.canMovePiece(deltaX, deltaY)) {
+            this.movePiece(deltaX, deltaY);
+          } else {
+            this.clearMoveTimer(); // Stop if cannot move further
+          }
+        },
+        callbackScope: this,
+        loop: true,
+      });
     });
+  }
 
-    if (canMove) {
-      Phaser.Actions.IncX(
-        this.fallingBlocks.getChildren(),
-        direction * CELL_SIZE
+  clearMoveTimer() {
+    if (this.moveDelayTimer) {
+      this.moveDelayTimer.remove(false);
+      this.moveDelayTimer = null;
+    }
+  }
+
+  movePiece(deltaX: number, deltaY: number) {
+    if (!this.activePiece) return;
+    this.activePiece.pivotGridX += deltaX;
+    this.activePiece.pivotGridY += deltaY;
+    this.updateActivePiecePositions();
+  }
+
+  rotatePiece() {
+    if (!this.activePiece) return;
+
+    const currentOrientation = this.activePiece.orientation;
+    const nextOrientation = (currentOrientation + 1) % 4; // Cycle through 0, 1, 2, 3
+
+    // Check if the rotated position is valid
+    if (
+      this.isValidPosition(
+        this.activePiece.pivotGridX,
+        this.activePiece.pivotGridY,
+        nextOrientation
+      )
+    ) {
+      this.activePiece.orientation = nextOrientation;
+      this.updateActivePiecePositions();
+    }
+    // TODO: Add wall kicks if desired (more complex)
+  }
+
+  handleSoftDrop() {
+    if (!this.fallTimer) return;
+    // Increase fall speed temporarily
+    this.fallTimer.delay = FALL_SPEED / 10; // Make it much faster
+    // Immediately trigger a move down if possible
+    this.movePieceDown();
+  }
+
+  resetFallSpeed() {
+    if (!this.fallTimer) return;
+    this.fallTimer.delay = FALL_SPEED;
+  }
+
+  // --- Collision Detection ---
+  canMovePiece(deltaX: number, deltaY: number): boolean {
+    if (!this.activePiece) return false;
+    const nextPivotX = this.activePiece.pivotGridX + deltaX;
+    const nextPivotY = this.activePiece.pivotGridY + deltaY;
+    return this.isValidPosition(
+      nextPivotX,
+      nextPivotY,
+      this.activePiece.orientation
+    );
+  }
+
+  // Checks if the piece at the target pivot location and orientation is valid
+  isValidPosition(
+    pivotX: number,
+    pivotY: number,
+    orientation: number
+  ): boolean {
+    if (!this.activePiece) return false; // Should not happen if called correctly
+
+    const { x1, y1, x2, y2 } = this.getPieceGridCoordinates(
+      pivotX,
+      pivotY,
+      orientation
+    );
+
+    // Check boundaries and collision with landed blocks for both blocks
+    return this.isCellValid(x1, y1) && this.isCellValid(x2, y2);
+  }
+
+  // Checks if a single cell is within bounds and not occupied
+  isCellValid(x: number, y: number): boolean {
+    return (
+      x >= 0 &&
+      x < GRID_WIDTH &&
+      y >= 0 &&
+      y < GRID_HEIGHT && // Only check against grid height for landed blocks
+      (y < 0 || !this.grid[y] || !this.grid[y][x]) // Allow positions above grid, check grid otherwise
+    );
+  }
+
+  // --- Piece Locking ---
+  lockPiece() {
+    if (!this.activePiece) return;
+
+    // Pause the main fall timer while locking/clearing
+    this.fallTimer?.remove(false);
+    this.fallTimer = null;
+
+    const { x1, y1, x2, y2, block1, block2 } = this.getFloorCoordinates(
+      this.activePiece
+    );
+
+    // Add blocks to the grid if they are within bounds
+    if (y1 >= 0 && y1 < GRID_HEIGHT) this.grid[y1][x1] = block1;
+    if (y2 >= 0 && y2 < GRID_HEIGHT) this.grid[y2][x2] = block2;
+
+    // Important: Update the final gridX/gridY on the blocks themselves
+    block1.gridX = x1;
+    block1.gridY = y1;
+    block2.gridX = x2;
+    block2.gridY = y2;
+
+    // Detach blocks from the active piece
+    this.activePiece = null;
+
+    // --- NEXT STEPS: Trigger Check for Matches/Clears ---
+    // let blocksToCheck = [block1, block2]; // Start checking from the newly landed blocks
+    // this.checkForClears(blocksToCheck);
+    // If no clears, spawn next piece immediately
+    // If clears happen, wait for animations/gravity, then spawn
+
+    console.log("Piece locked. Grid state:", this.grid); // Debug log
+
+    // For now, just spawn the next piece immediately
+    this.spawnNewPiece();
+    this.setupFallTimer(); // Restart the timer for the new piece
+  }
+
+  getFloorCoordinates(activePiece: ActivePiece) {
+    const { block1, block2, pivotGridX, pivotGridY, orientation } = activePiece;
+    const coordinates = this.getPieceGridCoordinates(
+      pivotGridX,
+      pivotGridY,
+      orientation
+    );
+
+    if (
+      orientation === BlockOrientation.B1_TOP ||
+      orientation === BlockOrientation.B1_BOTTOM
+    )
+      return {
+        ...coordinates,
+        block1,
+        block2,
+      };
+
+    const y1 = this.getNextLowestGridY(coordinates.x1, coordinates.y1);
+    if (y1 !== coordinates.y1) {
+      block1.gridY = y1;
+      block1.updatePosition();
+    }
+
+    const y2 = this.getNextLowestGridY(coordinates.x2, coordinates.y2);
+    if (y2 !== coordinates.y2) {
+      block2.gridY = y2;
+      block2.updatePosition();
+    }
+
+    return {
+      ...coordinates,
+      y1,
+      y2,
+      block1,
+      block2,
+    };
+  }
+
+  getNextLowestGridY(gridX: number, gridY: number) {
+    let floor = gridY;
+    while (this.isNextGridYEmpty(gridX, floor)) {
+      floor++;
+    }
+    return floor;
+  }
+  // wow, check it! 10
+  // index.ts:379 next... 11
+  // index.ts:381 verdict! 11
+  // index.ts:376 wow, check it! 10
+  // index.ts:379 next... 11
+  // index.ts:381 verdict! 11
+
+  isNextGridYEmpty(gridX: number, gridY: number) {
+    if (gridY >= GRID_HEIGHT) return false;
+
+    const nextGridY = gridY + 1;
+    if (!Array.isArray(this.grid[nextGridY])) return false;
+
+    return this.grid[nextGridY][gridX] === null;
+  }
+
+  // --- Helper Functions ---
+  updateActivePiecePositions() {
+    if (!this.activePiece) return;
+    const { block1, block2, pivotGridX, pivotGridY, orientation } =
+      this.activePiece;
+
+    const { x1, y1, x2, y2 } = this.getPieceGridCoordinates(
+      pivotGridX,
+      pivotGridY,
+      orientation
+    );
+
+    block1.gridX = x1;
+    block1.gridY = y1;
+    block1.updatePosition();
+
+    block2.gridX = x2;
+    block2.gridY = y2;
+    block2.updatePosition();
+  }
+
+  // Calculates the grid coordinates of both blocks based on pivot and orientation
+  getPieceGridCoordinates(
+    pivotX: number,
+    pivotY: number,
+    orientation: BlockOrientation
+  ): { x1: number; y1: number; x2: number; y2: number } {
+    let x1 = pivotX,
+      y1 = pivotY,
+      x2 = pivotX,
+      y2 = pivotY;
+
+    switch (orientation) {
+      case BlockOrientation.B1_TOP: // Block 1 Above Pivot (Block 2)
+        y1 = pivotY - 1;
+        y2 = pivotY;
+        x1 = pivotX;
+        x2 = pivotX;
+        break;
+      case BlockOrientation.B1_RIGHT: // Block 1 Right of Pivot (Block 2)
+        x1 = pivotX + 1;
+        y1 = pivotY;
+        x2 = pivotX;
+        y2 = pivotY;
+        break;
+      case BlockOrientation.B1_BOTTOM: // Block 1 Below Pivot (Block 2)
+        y1 = pivotY + 1;
+        y2 = pivotY;
+        x1 = pivotX;
+        x2 = pivotX;
+        break;
+      case BlockOrientation.B1_LEFT: // Block 1 Left of Pivot (Block 2)
+        x1 = pivotX - 1;
+        y1 = pivotY;
+        x2 = pivotX;
+        y2 = pivotY;
+        break;
+    }
+    return { x1, y1, x2, y2 };
+  }
+
+  // --- Game State ---
+  gameOver() {
+    console.error("GAME OVER");
+    this.scene.pause(); // Or restart, show a game over screen, etc.
+    if (this.fallTimer) this.fallTimer.remove(false);
+    // Display game over text or scene
+    this.add
+      .text(this.cameras.main.centerX, this.cameras.main.centerY, "GAME OVER", {
+        fontSize: "48px",
+        color: "#ff0000",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
+  }
+
+  // --- Debug Drawing ---
+  drawGridLines() {
+    const graphics = this.add.graphics({
+      lineStyle: { width: 1, color: 0x444444 },
+    });
+    // Vertical lines
+    for (let x = 0; x <= GRID_WIDTH; x++) {
+      graphics.lineBetween(
+        x * CELL_SIZE,
+        0,
+        x * CELL_SIZE,
+        GRID_HEIGHT * CELL_SIZE
+      );
+    }
+    // Horizontal lines
+    for (let y = 0; y <= GRID_HEIGHT; y++) {
+      graphics.lineBetween(
+        0,
+        y * CELL_SIZE,
+        GRID_WIDTH * CELL_SIZE,
+        y * CELL_SIZE
       );
     }
   }
 
-  rotateBlocks() {
-    if (!this.fallingBlocks) return;
-    const block1 = this.fallingBlocks.getChildren()[0] as Block;
-    const block2 = this.fallingBlocks.getChildren()[1] as Block;
-
-    if (!block1 || !block2) {
-      return; // Nothing to rotate if we don't have two blocks
-    }
-
-    const pivotX = (block1.x + block2.x) / 2;
-    const pivotY = (block1.y + block2.y) / 2;
-
-    const angle1 = Phaser.Math.Angle.BetweenPoints(
-      { x: pivotX, y: pivotY },
-      { x: block1.x, y: block1.y }
-    );
-    const distance1 = Phaser.Math.Distance.Between(
-      pivotX,
-      pivotY,
-      block1.x,
-      block1.y
-    );
-
-    const angle2 = Phaser.Math.Angle.BetweenPoints(
-      { x: pivotX, y: pivotY },
-      { x: block2.x, y: block2.y }
-    );
-    const distance2 = Phaser.Math.Distance.Between(
-      pivotX,
-      pivotY,
-      block2.x,
-      block2.y
-    );
-
-    const newAngle1 = angle1 + Math.PI / 2; // Rotate 90 degrees clockwise
-    const newAngle2 = angle2 + Math.PI / 2;
-
-    let newX1 = pivotX + Math.cos(newAngle1) * distance1;
-    let newY1 = pivotY + Math.sin(newAngle1) * distance1;
-
-    let newX2 = pivotX + Math.cos(newAngle2) * distance2;
-    let newY2 = pivotY + Math.sin(newAngle2) * distance2;
-
-    // Snap the new positions to the grid
-    newX1 = Math.round(newX1 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
-    newY1 = Math.round(newY1 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
-    newX2 = Math.round(newX2 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
-    newY2 = Math.round(newY2 / CELL_SIZE) * CELL_SIZE + CELL_SIZE / 2;
-
-    // Basic bounds checking and collision check after snapping
-    const gridX1 = Math.floor(newX1 / CELL_SIZE);
-    const gridY1 = Math.floor(newY1 / CELL_SIZE);
-    const gridX2 = Math.floor(newX2 / CELL_SIZE);
-    const gridY2 = Math.floor(newY2 / CELL_SIZE);
-
-    const canRotate =
-      gridX1 >= 0 &&
-      gridX1 < GRID_WIDTH &&
-      gridY1 < GRID_HEIGHT &&
-      !this.checkSolidCollision(newX1, newY1) &&
-      gridX2 >= 0 &&
-      gridX2 < GRID_WIDTH &&
-      gridY2 < GRID_HEIGHT &&
-      !this.checkSolidCollision(newX2, newY2);
-
-    if (canRotate) {
-      block1.setPosition(newX1, newY1);
-      block2.setPosition(newX2, newY2);
-    }
-  }
-
-  update(time: number, delta: number) {
-    this.drawSolidMass(); // Call this function to render the solid mass
-    // Handle user input and game logic here
-  }
-
-  spawnNewBlocks() {
-    if (!this.fallingBlocks) return;
-    // Logic to create a new pair of falling blocks (with potential orbs and different colors)
-    // and add them to the 'fallingBlocks' group.
-    console.log("Spawning new blocks");
-    // Destroy any existing falling blocks
-    this.fallingBlocks.clear(true, true);
-
-    const startX = GRID_WIDTH / 2 - 1; // Start in the middle (horizontally)
-    const startY = 0;
-
-    // Create the first block
-    const color1 = Phaser.Math.RND.pick(this.blockColors);
-    const hasOrb1 = Phaser.Math.RND.frac() < 0.3; // 30% chance of having an orb
-    const orbColor1 = hasOrb1 ? Phaser.Math.RND.pick(this.blockColors) : null;
-    const block1 = new Block(
-      this,
-      (startX + 0.5) * CELL_SIZE,
-      (startY + 0.5) * CELL_SIZE,
-      "block",
-      color1,
-      hasOrb1,
-      orbColor1
-    );
-    this.fallingBlocks.add(block1);
-
-    // Create the second block (attached to the first)
-    const color2 = Phaser.Math.RND.pick(this.blockColors);
-    const hasOrb2 = Phaser.Math.RND.frac() < 0.3;
-    const orbColor2 = hasOrb2 ? Phaser.Math.RND.pick(this.blockColors) : null;
-    const block2 = new Block(
-      this,
-      (startX + 1.5) * CELL_SIZE,
-      (startY + 0.5) * CELL_SIZE,
-      "block",
-      color2,
-      hasOrb2,
-      orbColor2
-    );
-    this.fallingBlocks.add(block2);
-
-    // We might need to store the relative positions of these blocks for rotation later
-    // For now, they are side-by-side at the top.
-  }
-
-  spawnNextBlocksPreview() {
-    // Logic to display the next pair of blocks
-  }
-
-  moveFallingBlocksDown() {
-    if (!this.fallingBlocks) return;
-    // Logic to move the 'fallingBlocks' group down by one cell.
-    let canMove = true;
-    this.fallingBlocks.getChildren().forEach((child) => {
-      const block = child as Block; // Type assertion
-      const nextY = block.y + CELL_SIZE;
-      const gridY = Math.floor(block.y / CELL_SIZE);
-      if (
-        gridY >= GRID_HEIGHT - 1 ||
-        this.checkSolidCollision(block.x, nextY)
-      ) {
-        canMove = false;
-      }
-    });
-
-    if (canMove) {
-      Phaser.Actions.IncY(this.fallingBlocks.getChildren(), CELL_SIZE);
-      return;
-    }
-    if (this.fallTimer) {
-      this.placeFallingBlocksOnGrid();
-      this.time.removeEvent(this.fallTimer); // Stop the fall timer
-      this.spawnNewBlocks(); // Spawn the next block immediately
-      this.fallTimer = this.time.addEvent({
-        // Restart the timer for the new blocks
-        delay: FALL_SPEED,
-        callback: this.moveFallingBlocksDown,
-        callbackScope: this,
-        loop: true,
-      });
-    }
-  }
-
-  checkSolidCollision(x: number, y: number): boolean {
-    const gridX = Math.floor(x / CELL_SIZE);
-    const gridY = Math.floor(y / CELL_SIZE);
-
-    // Check if the potential next position is within the grid bounds
-    if (gridY >= 0 && gridY < GRID_HEIGHT && gridX >= 0 && gridX < GRID_WIDTH) {
-      return this.grid[gridY][gridX] !== 0; // Check if that grid cell is already occupied
-    }
-    // If it's out of bounds (e.g., below the bottom), consider it a collision
-    return gridY >= GRID_HEIGHT;
-  }
-
-  placeFallingBlocksOnGrid() {
-    if (!this.fallingBlocks) return;
-    this.fallingBlocks.getChildren().forEach((child) => {
-      const block = child as Block;
-      const gridX = Math.floor(block.x / CELL_SIZE);
-      const gridY = Math.floor(block.y / CELL_SIZE);
-      if (
-        gridY >= 0 &&
-        gridY < GRID_HEIGHT &&
-        gridX >= 0 &&
-        gridX < GRID_WIDTH &&
-        this.solidMassGroup
-      ) {
-        this.grid[gridY][gridX] = block.color; // Store the color in the grid
-
-        const landedBlock = new Block(
-          this,
-          gridX * CELL_SIZE + CELL_SIZE / 2,
-          gridY * CELL_SIZE + CELL_SIZE / 2,
-          "block",
-          block.color,
-          block.getHasOrb(),
-          block.getOrbColor()
-        );
-        this.solidMassGroup.add(landedBlock);
-
-        const orbColor = block.getOrbColor();
-        // Check for explosion if the landed block had an orb
-        if (block.getHasOrb() && orbColor !== null) {
-          this.checkForOrbExplosion(gridX, gridY, orbColor);
-        }
-      }
-      block.destroy(true); // Destroy the falling block sprite after it has landed
-    });
-    this.fallingBlocks.clear(true, true); // Clear the falling blocks group
-  }
-
-  drawSolidMass() {
-    // We might not need this if we are creating sprites in place
-    // For now, let's keep it empty.
-  }
-
-  checkForOrbExplosion(startX: number, startY: number, orbColor: number) {
-    const visited: boolean[][] = Array.from({ length: GRID_HEIGHT }, () =>
-      Array(GRID_WIDTH).fill(false)
-    );
-    const connectedBlocks: { x: number; y: number }[] = [];
-    const queue: { x: number; y: number }[] = [{ x: startX, y: startY }];
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      const { x, y } = current;
-
-      if (
-        x < 0 ||
-        x >= GRID_WIDTH ||
-        y < 0 ||
-        y >= GRID_HEIGHT ||
-        visited[y][x] ||
-        this.grid[y][x] !== orbColor
-      ) {
-        continue;
-      }
-
-      visited[y][x] = true;
-      connectedBlocks.push({ x, y });
-
-      // Explore adjacent cells
-      queue.push({ x: x + 1, y });
-      queue.push({ x: x - 1, y });
-      queue.push({ x: x, y: y + 1 });
-      queue.push({ x: x, y: y - 1 });
-    }
-
-    if (connectedBlocks.length >= 1) {
-      // Explode even if it's just the landed block
-      this.explodeBlocks(connectedBlocks);
-    }
-  }
-
-  explodeBlocks(blocksToRemove: { x: number; y: number }[]) {
-    console.log("ex!", blocksToRemove);
-    blocksToRemove.forEach((blockToRemove) => {
-      if (!this.solidMassGroup) return;
-
-      const { x, y } = blockToRemove;
-      this.grid[y][x] = 0; // Clear the grid cell
-
-      // Find and destroy the corresponding visual block in the solidMassGroup
-      this.solidMassGroup.getChildren().forEach((solidBlock) => {
-        const sb = solidBlock as Block;
-        const blockGridX = Math.floor(sb.x / CELL_SIZE);
-        const blockGridY = Math.floor(sb.y / CELL_SIZE);
-        if (blockGridX === x && blockGridY === y) {
-          sb.destroy(true);
-        }
-      });
-    });
-
-    // Award points for the explosion
-    this.updateScore(blocksToRemove.length);
-
-    // Check for chain reactions (we'll implement this later)
-    this.checkForChainReactions();
-  }
-
-  updateScore(points: number) {
-    console.log(`Scored ${points} points!`);
-    // Implement actual score updating UI later
-  }
-
-  checkForChainReactions() {
-    // Implement logic to check for new solid connections and potential chain explosions
-  }
+  // update(time: number, delta: number) {
+  //   // Most logic is now handled by timers and input events
+  // }
 }
 
-export const game = (el: HTMLDivElement) => {
-  return new Phaser.Game({
+// Keep the game export the same
+export const game = (el: HTMLDivElement) =>
+  new Phaser.Game({
     type: Phaser.AUTO,
     width: GRID_WIDTH * CELL_SIZE,
     height: GRID_HEIGHT * CELL_SIZE,
     parent: el,
     scene: MuroTaisen,
+    physics: {
+      // Enable physics if needed later for effects, but not core logic
+      default: "arcade",
+      arcade: {
+        gravity: { y: 0, x: 0 }, // No global gravity affecting puzzle pieces
+        debug: false,
+      },
+    },
+    // Optional: Set background color
+    backgroundColor: "#2d2d2d",
   });
-};

@@ -2,34 +2,59 @@
 import Phaser from "phaser";
 import { CELL_SIZE } from "./constants";
 
+// Define possible gem colors (using hex for clarity)
+export enum GemColor {
+  RED = 0xff0000,
+  GREEN = 0x00ff00,
+  BLUE = 0x0000ff,
+  YELLOW = 0xffff00,
+  // Add more colors if needed
+}
+
+// Define block types
+export enum BlockType {
+  GEM, // Normal colored gem
+  CRASH_GEM, // Special gem to break others
+  // COUNTER_GEM, // Timed garbage blocks (implement later)
+  // DIAMOND, // Clears all of one color (implement later)
+}
+
 export class Block extends Phaser.GameObjects.Sprite {
-  public color: number; // Phaser color value
+  public gridX: number;
+  public gridY: number;
+  public gemColor: GemColor;
+  public blockType: BlockType;
+  public isFallingSeparately: boolean = false; // Flag for separated blocks
+  // isPartOfActivePiece: boolean = false; // Might be useful later
 
   constructor(
     scene: Phaser.Scene,
-    x: number,
-    y: number,
+    gridX: number,
+    gridY: number,
     texture: string,
-    color: number,
-    hasOrb: boolean = false,
-    orbColor: number | null = null
+    gemColor: GemColor,
+    blockType: BlockType = BlockType.GEM
   ) {
-    super(scene, x, y, texture);
-    this.color = color;
-    this.setTint(color); // Apply color to the sprite
-    this.setScale(CELL_SIZE / this.width); // Scale down the sprite
+    // Calculate pixel coordinates from grid coordinates
+    const pixelX = gridX * CELL_SIZE + CELL_SIZE / 2;
+    const pixelY = gridY * CELL_SIZE + CELL_SIZE / 2;
+
+    super(scene, pixelX, pixelY, texture);
+
+    this.gridX = gridX;
+    this.gridY = gridY;
+    this.gemColor = gemColor;
+    this.blockType = blockType;
+
+    this.setTint(gemColor); // Apply color tint
+    this.setDisplaySize(CELL_SIZE, CELL_SIZE); // Ensure correct size
 
     scene.add.existing(this);
-
-    this.setData("hasOrb", hasOrb);
-    this.setData("orbColor", orbColor);
   }
 
-  getHasOrb(): boolean {
-    return this.getData("hasOrb");
-  }
-
-  getOrbColor(): number | null {
-    return this.getData("orbColor");
+  // Helper to update position based on grid coordinates
+  updatePosition() {
+    this.x = this.gridX * CELL_SIZE + CELL_SIZE / 2;
+    this.y = this.gridY * CELL_SIZE + CELL_SIZE / 2;
   }
 }
