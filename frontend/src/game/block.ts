@@ -57,4 +57,9 @@ export class Block extends Phaser.GameObjects.Sprite {
     this.x = this.gridX * CELL_SIZE + CELL_SIZE / 2;
     this.y = this.gridY * CELL_SIZE + CELL_SIZE / 2;
   }
+
+  explode() {
+    // TODO: maybe add some animation?
+    this.destroy();
+  }
 }
