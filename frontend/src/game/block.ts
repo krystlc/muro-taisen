@@ -1,4 +1,4 @@
-// src/block.ts
+// src/game/block.ts
 import Phaser from "phaser";
 import { CELL_SIZE } from "./constants";
 
@@ -8,7 +8,8 @@ export enum GemColor {
   GREEN = 0x00ff00,
   BLUE = 0x0000ff,
   YELLOW = 0xffff00,
-  // Add more colors if needed
+  PURPLE = 0x800080,
+  CYAN = 0x00ffff,
 }
 
 // Define block types
@@ -26,6 +27,7 @@ export class Block extends Phaser.GameObjects.Sprite {
   public blockType: BlockType;
   public isFallingSeparately: boolean = false; // Flag for separated blocks
   // isPartOfActivePiece: boolean = false; // Might be useful later
+  private highlight: Phaser.GameObjects.Graphics | null = null; // Add this property declaration
 
   constructor(
     scene: Phaser.Scene,
@@ -46,15 +48,80 @@ export class Block extends Phaser.GameObjects.Sprite {
     this.gemColor = gemColor;
     this.blockType = blockType;
 
-    this.setTint(gemColor); // Apply color tint
-    this.setDisplaySize(CELL_SIZE, CELL_SIZE); // Ensure correct size
+    // Different setup based on block type
+    if (blockType === BlockType.GEM) {
+      // Regular block
+      this.setTexture("block");
+      this.setDisplaySize(CELL_SIZE - 2, CELL_SIZE - 2); // Slightly smaller to show grid
+    } else {
+      // Crash gem (orb)
+      this.setTexture("block"); // Use same texture for consistency
+      this.setDisplaySize(CELL_SIZE - 4, CELL_SIZE - 4); // Slightly smaller
+      // Create a circular shape instead
+      this.createCrashGemVisual();
+    }
+
+    // Apply color tint
+    this.setTint(gemColor);
 
     scene.add.existing(this);
+  }
+
+  // Create a circular visual for crash gems
+  private createCrashGemVisual() {
+    // Create a circle highlight
+    this.highlight = this.scene.add.graphics();
+    this.updateHighlight();
+
+    // Make the block itself more transparent
+    this.setAlpha(0.7);
+  }
+
+  // Update the highlight position
+  private updateHighlight() {
+    if (!this.highlight) return;
+
+    this.highlight.clear();
+
+    // Draw a white circle border
+    this.highlight.lineStyle(2, 0xffffff, 1);
+    this.highlight.strokeCircle(this.x, this.y, CELL_SIZE / 2 - 3);
+
+    // Draw a filled circle with the block's color
+    this.highlight.fillStyle(this.gemColor, 0.5);
+    this.highlight.fillCircle(this.x, this.y, CELL_SIZE / 2 - 4);
   }
 
   // Helper to update position based on grid coordinates
   updatePosition() {
     this.x = this.gridX * CELL_SIZE + CELL_SIZE / 2;
     this.y = this.gridY * CELL_SIZE + CELL_SIZE / 2;
+
+    // Update highlight if it exists
+    if (this.highlight) {
+      this.updateHighlight();
+    }
+  }
+
+  // Method to flash before destruction
+  flash() {
+    this.scene.tweens.add({
+      targets: this,
+      alpha: 0.3,
+      yoyo: true,
+      repeat: 3,
+      duration: 100,
+    });
+
+    return this;
+  }
+
+  // Clean up resources when destroyed
+  destroy(fromScene?: boolean) {
+    if (this.highlight) {
+      this.highlight.destroy();
+      this.highlight = null;
+    }
+    super.destroy(fromScene);
   }
 }

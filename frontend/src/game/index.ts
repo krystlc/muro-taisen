@@ -1,17 +1,21 @@
-// src/scene.ts (Updated index.ts content)
+// src/game/index.ts
 import Phaser from "phaser";
 import { GRID_WIDTH, GRID_HEIGHT, CELL_SIZE, FALL_SPEED } from "./constants";
-import { Block, GemColor, BlockType } from "./block"; // Import new enums
+import { Block, GemColor, BlockType } from "./block";
+import { MatchingSystem, MatchGroup } from "./matching";
+import { EffectsManager } from "./effects";
 
 // Helper type for the grid
 type GameGrid = (Block | null)[][];
+
 enum BlockOrientation {
   B1_TOP,
   B1_RIGHT,
   B1_BOTTOM,
   B1_LEFT,
 }
-// --- Interface for Active Piece --- (Can be defined here or imported if in separate file)
+
+// Interface for Active Piece
 interface ActivePiece {
   block1: Block;
   block2: Block;
@@ -20,7 +24,6 @@ interface ActivePiece {
   pivotGridX: number;
   pivotGridY: number;
 }
-// ---
 
 class MuroTaisen extends Phaser.Scene {
   private grid: GameGrid = [];
@@ -30,6 +33,10 @@ class MuroTaisen extends Phaser.Scene {
   private moveDelayTimer: Phaser.Time.TimerEvent | null = null; // Prevent instant repeated moves
   private moveRepeatDelay: number = 150; // ms delay for holding key down
   private moveFirstDelay: number = 200; // ms delay before repeat starts
+  private matchAnimationPlaying: boolean = false; // Flag to track if match animations are playing
+  private score: number = 0;
+  private comboCount: number = 0;
+  private effectsManager!: EffectsManager;
 
   constructor() {
     super("MuroTaisen");
@@ -37,27 +44,64 @@ class MuroTaisen extends Phaser.Scene {
 
   preload() {
     this.load.setPath("assets");
-    this.load.image("orb", "orb.png"); // Use a simple square block for now
-    this.load.image("block", "block.png"); // Use a simple square block for now
-    // You might want different assets for Gems and Crash Gems later
-    // this.load.image("gem", "gem.png");
-    // this.load.image("crashGem", "crash_gem.png");
+    this.load.image("orb", "orb.png");
+    this.load.image("block", "block.png");
+
+    // Add a loading event to check the image dimensions
+    this.load.on("filecomplete-image-orb", () => {
+      const orbTexture = this.textures.get("orb");
+      console.log(
+        "Orb texture loaded, dimensions:",
+        orbTexture.source[0].width,
+        "x",
+        orbTexture.source[0].height
+      );
+
+      // Reset the texture if it's too large
+      if (orbTexture.source[0].width > 64 || orbTexture.source[0].height > 64) {
+        console.warn("Orb texture is too large, resizing might be needed");
+      }
+    });
   }
 
   create() {
     this.initializeGrid();
-    this.cursors = this.input.keyboard?.createCursorKeys(); // Enable keyboard input
+    this.cursors = this.input.keyboard?.createCursorKeys();
+
+    // Initialize effects manager
+    this.effectsManager = new EffectsManager(this);
+
+    // Setup score text
+    this.add
+      .text(10, 10, "Score: 0", {
+        color: "#ffffff",
+        fontSize: "18px",
+      })
+      .setDepth(10)
+      .setName("scoreText");
+
+    // Add combo text (initially hidden)
+    this.add
+      .text(this.cameras.main.centerX, 80, "", {
+        fontSize: "24px",
+        color: "#ffff00",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setName("comboText");
+
     this.spawnNewPiece();
     this.setupFallTimer();
     this.setupInput();
 
-    // Optional: Draw grid lines for debugging
+    // Draw grid lines for visibility
     this.drawGridLines();
   }
 
   // Initialize the grid with null values
   initializeGrid() {
-    this.grid = []; // Clear existing grid if scene restarts
+    this.grid = [];
     for (let y = 0; y < GRID_HEIGHT; y++) {
       this.grid[y] = [];
       for (let x = 0; x < GRID_WIDTH; x++) {
@@ -68,13 +112,14 @@ class MuroTaisen extends Phaser.Scene {
 
   // --- Piece Spawning ---
   spawnNewPiece() {
-    const startX = Math.floor(GRID_WIDTH / 2) - 1; // Start near top-center
-    const startY = 0; // Start just above the visible grid
+    // Reset combo count when a new piece is spawned
+    this.comboCount = 0;
 
-    // Create two blocks with random colors (basic gems for now)
+    const startX = Math.floor(GRID_WIDTH / 2) - 1;
+    const startY = 0;
+
     const color1 = this.getRandomColor();
     const color2 = this.getRandomColor();
-    // TODO: Add logic to sometimes make one a Crash Gem
     const gem1 = this.getRandomGem();
     const gem2 = this.getRandomGem();
 
@@ -98,9 +143,9 @@ class MuroTaisen extends Phaser.Scene {
     this.activePiece = {
       block1: block1,
       block2: block2,
-      orientation: 0, // block1 on top
+      orientation: BlockOrientation.B1_TOP, // block1 on top
       pivotGridX: startX,
-      pivotGridY: startY, // Pivot is usually the 'lower' or 'center' block
+      pivotGridY: startY,
     };
 
     // Check for game over immediately
@@ -116,14 +161,15 @@ class MuroTaisen extends Phaser.Scene {
   }
 
   getRandomGem(): { gemType: BlockType; texture: string } {
-    const arr = [BlockType.GEM, BlockType.CRASH_GEM];
-    const gemType = Phaser.Math.RND.pick(arr);
-    let texture = "block";
-    if (gemType === BlockType.CRASH_GEM) texture = "orb";
-    return {
-      gemType,
-      texture,
-    };
+    // 20% chance for a crash gem
+    const isSpecial = Phaser.Math.RND.frac() < 0.2;
+    const gemType = isSpecial ? BlockType.CRASH_GEM : BlockType.GEM;
+
+    // Always use the block texture (more reliable sizing)
+    // but differentiate with a different tint or scale for special blocks
+    const texture = "block";
+
+    return { gemType, texture };
   }
 
   getRandomColor(): GemColor {
@@ -148,7 +194,7 @@ class MuroTaisen extends Phaser.Scene {
   }
 
   movePieceDown() {
-    if (!this.activePiece) return;
+    if (!this.activePiece || this.matchAnimationPlaying) return;
 
     if (this.canMovePiece(0, 1)) {
       this.activePiece.pivotGridY++;
@@ -172,17 +218,21 @@ class MuroTaisen extends Phaser.Scene {
     this.cursors.right.on("up", () => this.clearMoveTimer());
 
     // --- Rotation ---
-    // Using 'space' for rotation example (or UP arrow)
     this.input.keyboard?.on("keydown-SPACE", () => this.rotatePiece());
-    // this.cursors.up.on('down', () => this.rotatePiece()); // Alternative
+    this.input.keyboard?.on("keydown-Z", () =>
+      this.rotatePieceCounterClockwise()
+    );
+    this.cursors.up.on("down", () => this.rotatePiece()); // Alternative
 
     // --- Soft Drop ---
     this.cursors.down.on("down", () => this.handleSoftDrop());
-    this.cursors.down.on("up", () => this.resetFallSpeed()); // Optional: return to normal speed
+    this.cursors.down.on("up", () => this.resetFallSpeed());
   }
 
   handleMoveInput(deltaX: number, deltaY: number) {
-    this.clearMoveTimer(); // Clear previous timer if any
+    if (this.matchAnimationPlaying) return;
+
+    this.clearMoveTimer();
 
     // Try initial move
     if (this.canMovePiece(deltaX, deltaY)) {
@@ -197,7 +247,7 @@ class MuroTaisen extends Phaser.Scene {
           if (this.canMovePiece(deltaX, deltaY)) {
             this.movePiece(deltaX, deltaY);
           } else {
-            this.clearMoveTimer(); // Stop if cannot move further
+            this.clearMoveTimer();
           }
         },
         callbackScope: this,
@@ -220,30 +270,67 @@ class MuroTaisen extends Phaser.Scene {
     this.updateActivePiecePositions();
   }
 
+  // --- Enhanced Rotation System ---
   rotatePiece() {
-    if (!this.activePiece) return;
+    if (!this.activePiece || this.matchAnimationPlaying) return;
 
     const currentOrientation = this.activePiece.orientation;
-    const nextOrientation = (currentOrientation + 1) % 4; // Cycle through 0, 1, 2, 3
+    const nextOrientation = (currentOrientation + 1) % 4; // Clockwise
 
-    // Check if the rotated position is valid
-    if (
-      this.isValidPosition(
-        this.activePiece.pivotGridX,
-        this.activePiece.pivotGridY,
-        nextOrientation
-      )
-    ) {
-      this.activePiece.orientation = nextOrientation;
+    this.tryRotation(nextOrientation);
+  }
+
+  rotatePieceCounterClockwise() {
+    if (!this.activePiece || this.matchAnimationPlaying) return;
+
+    const currentOrientation = this.activePiece.orientation;
+    const nextOrientation = (currentOrientation + 3) % 4; // Counter-clockwise (4-1=3)
+
+    this.tryRotation(nextOrientation);
+  }
+
+  tryRotation(targetOrientation: BlockOrientation) {
+    if (!this.activePiece) return;
+
+    const { pivotGridX, pivotGridY } = this.activePiece;
+
+    // Try normal rotation
+    if (this.isValidPosition(pivotGridX, pivotGridY, targetOrientation)) {
+      this.activePiece.orientation = targetOrientation;
       this.updateActivePiecePositions();
+      return;
     }
-    // TODO: Add wall kicks if desired (more complex)
+
+    // Wall kicks - try adjusting position to make rotation valid
+    const wallKickOffsets = [
+      { x: -1, y: 0 }, // Try left
+      { x: 1, y: 0 }, // Try right
+      { x: 0, y: -1 }, // Try up (rarely needed but can help)
+      { x: -1, y: -1 }, // Try up-left
+      { x: 1, y: -1 }, // Try up-right
+    ];
+
+    for (const offset of wallKickOffsets) {
+      const newX = pivotGridX + offset.x;
+      const newY = pivotGridY + offset.y;
+
+      if (this.isValidPosition(newX, newY, targetOrientation)) {
+        // We found a valid position with wall kick
+        this.activePiece.pivotGridX = newX;
+        this.activePiece.pivotGridY = newY;
+        this.activePiece.orientation = targetOrientation;
+        this.updateActivePiecePositions();
+        return;
+      }
+    }
+
+    // If we got here, rotation is not possible
   }
 
   handleSoftDrop() {
-    if (!this.fallTimer) return;
+    if (!this.fallTimer || this.matchAnimationPlaying) return;
     // Increase fall speed temporarily
-    this.fallTimer.delay = FALL_SPEED / 10; // Make it much faster
+    this.fallTimer.delay = FALL_SPEED / 10;
     // Immediately trigger a move down if possible
     this.movePieceDown();
   }
@@ -265,13 +352,12 @@ class MuroTaisen extends Phaser.Scene {
     );
   }
 
-  // Checks if the piece at the target pivot location and orientation is valid
   isValidPosition(
     pivotX: number,
     pivotY: number,
     orientation: number
   ): boolean {
-    if (!this.activePiece) return false; // Should not happen if called correctly
+    if (!this.activePiece) return false;
 
     const { x1, y1, x2, y2 } = this.getPieceGridCoordinates(
       pivotX,
@@ -279,18 +365,16 @@ class MuroTaisen extends Phaser.Scene {
       orientation
     );
 
-    // Check boundaries and collision with landed blocks for both blocks
     return this.isCellValid(x1, y1) && this.isCellValid(x2, y2);
   }
 
-  // Checks if a single cell is within bounds and not occupied
   isCellValid(x: number, y: number): boolean {
     return (
       x >= 0 &&
       x < GRID_WIDTH &&
       y >= 0 &&
-      y < GRID_HEIGHT && // Only check against grid height for landed blocks
-      (y < 0 || !this.grid[y] || !this.grid[y][x]) // Allow positions above grid, check grid otherwise
+      y < GRID_HEIGHT &&
+      (y < 0 || !this.grid[y] || !this.grid[y][x])
     );
   }
 
@@ -310,26 +394,17 @@ class MuroTaisen extends Phaser.Scene {
     if (y1 >= 0 && y1 < GRID_HEIGHT) this.grid[y1][x1] = block1;
     if (y2 >= 0 && y2 < GRID_HEIGHT) this.grid[y2][x2] = block2;
 
-    // Important: Update the final gridX/gridY on the blocks themselves
+    // Update the final gridX/gridY on the blocks themselves
     block1.gridX = x1;
     block1.gridY = y1;
     block2.gridX = x2;
     block2.gridY = y2;
 
-    // Detach blocks from the active piece
+    // Detach blocks from active piece
     this.activePiece = null;
 
-    // --- NEXT STEPS: Trigger Check for Matches/Clears ---
-    // let blocksToCheck = [block1, block2]; // Start checking from the newly landed blocks
-    // this.checkForClears(blocksToCheck);
-    // If no clears, spawn next piece immediately
-    // If clears happen, wait for animations/gravity, then spawn
-
-    console.log("Piece locked. Grid state:", this.grid); // Debug log
-
-    // For now, just spawn the next piece immediately
-    this.spawnNewPiece();
-    this.setupFallTimer(); // Restart the timer for the new piece
+    // Trigger match checking
+    this.checkForMatches();
   }
 
   getFloorCoordinates(activePiece: ActivePiece) {
@@ -340,6 +415,7 @@ class MuroTaisen extends Phaser.Scene {
       orientation
     );
 
+    // For vertical orientations, blocks fall together
     if (
       orientation === BlockOrientation.B1_TOP ||
       orientation === BlockOrientation.B1_BOTTOM
@@ -350,6 +426,7 @@ class MuroTaisen extends Phaser.Scene {
         block2,
       };
 
+    // For horizontal orientations, blocks can fall independently
     const y1 = this.getNextLowestGridY(coordinates.x1, coordinates.y1);
     if (y1 !== coordinates.y1) {
       block1.gridY = y1;
@@ -378,20 +455,213 @@ class MuroTaisen extends Phaser.Scene {
     }
     return floor;
   }
-  // wow, check it! 10
-  // index.ts:379 next... 11
-  // index.ts:381 verdict! 11
-  // index.ts:376 wow, check it! 10
-  // index.ts:379 next... 11
-  // index.ts:381 verdict! 11
 
   isNextGridYEmpty(gridX: number, gridY: number) {
-    if (gridY >= GRID_HEIGHT) return false;
+    if (gridY >= GRID_HEIGHT - 1) return false;
 
     const nextGridY = gridY + 1;
     if (!Array.isArray(this.grid[nextGridY])) return false;
 
     return this.grid[nextGridY][gridX] === null;
+  }
+
+  // --- Match Checking System ---
+  checkForMatches() {
+    // Find all matches in the grid
+    const matches = MatchingSystem.findMatches(this.grid);
+
+    if (matches.length > 0) {
+      this.matchAnimationPlaying = true;
+
+      // Process any special gems effects
+      const additionalBlocks = MatchingSystem.processCrashGems(
+        matches,
+        this.grid
+      );
+
+      // Collect all blocks to remove
+      const allBlocksToRemove: Block[] = [...additionalBlocks];
+      matches.forEach((match) => allBlocksToRemove.push(...match.blocks));
+
+      // Update score based on matches
+      this.updateScore(matches.length, allBlocksToRemove.length);
+
+      // Animate and remove matched blocks
+      this.animateAndRemoveBlocks(allBlocksToRemove, () => {
+        // After animation, apply gravity to blocks above
+        this.applyGravity(() => {
+          // Check for cascading matches
+          this.checkForMatches();
+        });
+      });
+    } else {
+      // No matches, spawn next piece
+      this.matchAnimationPlaying = false;
+      this.spawnNewPiece();
+      this.setupFallTimer();
+    }
+  }
+
+  updateScore(matchCount: number, blockCount: number) {
+    // Base points per block
+    const basePoints = 10;
+
+    // Increase combo count for cascades
+    this.comboCount++;
+
+    // Bonus for combos (more points for consecutive matches)
+    const comboBonus = this.comboCount > 1 ? this.comboCount * 30 : 0;
+
+    // Bonus for multiple matches
+    const matchBonus = matchCount > 1 ? matchCount * 50 : 0;
+
+    // Calculate total score for this clear
+    const points = basePoints * blockCount + matchBonus + comboBonus;
+
+    this.score += points;
+
+    // Update score display
+    const scoreText = this.children.getByName(
+      "scoreText"
+    ) as Phaser.GameObjects.Text;
+    if (scoreText) {
+      scoreText.setText(`Score: ${this.score}`);
+    }
+
+    // Show floating score text
+    this.effectsManager.createScorePopup(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY,
+      points
+    );
+
+    // Show combo effect for 2+ combos
+    if (this.comboCount > 1) {
+      this.effectsManager.createComboEffect(
+        this.cameras.main.centerX,
+        this.cameras.main.height / 4,
+        this.comboCount
+      );
+    }
+  }
+
+  animateAndRemoveBlocks(blocks: Block[], onComplete: () => void) {
+    const blockCount = blocks.length;
+    if (blockCount === 0) {
+      onComplete();
+      return;
+    }
+
+    let completedCount = 0;
+
+    // Animate each block and remove from grid
+    blocks.forEach((block) => {
+      // Remove from grid data
+      if (
+        block.gridY >= 0 &&
+        block.gridY < GRID_HEIGHT &&
+        block.gridX >= 0 &&
+        block.gridX < GRID_WIDTH
+      ) {
+        this.grid[block.gridY][block.gridX] = null;
+      }
+
+      // Flash the block
+      block.flash();
+
+      // Calculate block position
+      const pixelX = block.gridX * CELL_SIZE + CELL_SIZE / 2;
+      const pixelY = block.gridY * CELL_SIZE + CELL_SIZE / 2;
+
+      // Create a small localized effect
+      if (block.blockType === BlockType.CRASH_GEM) {
+        this.effectsManager.createCrashGemEffect(
+          pixelX,
+          pixelY,
+          block.gemColor
+        );
+      } else {
+        this.effectsManager.createMatchClearEffect(
+          pixelX,
+          pixelY,
+          block.gemColor
+        );
+      }
+
+      // Simple shrink animation to remove the block
+      this.tweens.add({
+        targets: block,
+        scaleX: 0,
+        scaleY: 0,
+        angle: 180, // Add a little rotation
+        duration: 200,
+        onComplete: () => {
+          block.destroy();
+          completedCount++;
+
+          // When all blocks are processed, run the callback
+          if (completedCount === blockCount) {
+            onComplete();
+          }
+        },
+      });
+    });
+  }
+
+  applyGravity(onComplete: () => void) {
+    let blocksInMotion = 0;
+    let blocksMoved = false;
+
+    // For each column, start from the bottom and move blocks down
+    for (let x = 0; x < GRID_WIDTH; x++) {
+      for (let y = GRID_HEIGHT - 2; y >= 0; y--) {
+        const block = this.grid[y][x];
+        if (!block) continue;
+
+        // Find the lowest empty space below this block
+        let lowestEmptyY = y;
+        for (let checkY = y + 1; checkY < GRID_HEIGHT; checkY++) {
+          if (!this.grid[checkY][x]) {
+            lowestEmptyY = checkY;
+          } else {
+            break; // Stop at the first non-empty cell
+          }
+        }
+
+        if (lowestEmptyY > y) {
+          blocksMoved = true;
+          blocksInMotion++;
+
+          // Update grid reference
+          this.grid[y][x] = null;
+          this.grid[lowestEmptyY][x] = block;
+
+          // Update block's grid coordinates
+          block.gridY = lowestEmptyY;
+
+          // Animate the block falling
+          this.tweens.add({
+            targets: block,
+            y: lowestEmptyY * CELL_SIZE + CELL_SIZE / 2,
+            duration: 150 * (lowestEmptyY - y), // Longer fall = longer animation
+            ease: "Bounce.Out",
+            onComplete: () => {
+              blocksInMotion--;
+
+              // When all blocks have settled, run the callback
+              if (blocksInMotion === 0) {
+                onComplete();
+              }
+            },
+          });
+        }
+      }
+    }
+
+    // If no blocks moved, complete immediately
+    if (!blocksMoved) {
+      onComplete();
+    }
   }
 
   // --- Helper Functions ---
@@ -415,7 +685,6 @@ class MuroTaisen extends Phaser.Scene {
     block2.updatePosition();
   }
 
-  // Calculates the grid coordinates of both blocks based on pivot and orientation
   getPieceGridCoordinates(
     pivotX: number,
     pivotY: number,
@@ -458,16 +727,65 @@ class MuroTaisen extends Phaser.Scene {
   // --- Game State ---
   gameOver() {
     console.error("GAME OVER");
-    this.scene.pause(); // Or restart, show a game over screen, etc.
+    this.scene.pause();
     if (this.fallTimer) this.fallTimer.remove(false);
-    // Display game over text or scene
-    this.add
-      .text(this.cameras.main.centerX, this.cameras.main.centerY, "GAME OVER", {
-        fontSize: "48px",
-        color: "#ff0000",
-        fontStyle: "bold",
-      })
+
+    // Create a semi-transparent background for the game over message
+    const overlay = this.add
+      .rectangle(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY,
+        this.cameras.main.width * 0.8,
+        this.cameras.main.height * 0.5,
+        0x000000,
+        0.7
+      )
       .setOrigin(0.5);
+
+    // Display game over text with proper positioning
+    const gameOverText = this.add
+      .text(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY - 50,
+        "GAME OVER",
+        {
+          fontSize: "32px",
+          color: "#ff0000",
+          fontStyle: "bold",
+        }
+      )
+      .setOrigin(0.5);
+
+    // Add final score display with proper positioning
+    this.add
+      .text(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY,
+        `Score: ${this.score}`,
+        {
+          fontSize: "24px",
+          color: "#ffffff",
+        }
+      )
+      .setOrigin(0.5);
+
+    // Add restart button with proper positioning
+    const restartButton = this.add
+      .rectangle(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY + 50,
+        120,
+        40,
+        0x660066
+      )
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    restartButton.on("pointerdown", () => {
+      this.score = 0;
+      this.comboCount = 0;
+      this.scene.restart();
+    });
   }
 
   // --- Debug Drawing ---
@@ -494,13 +812,9 @@ class MuroTaisen extends Phaser.Scene {
       );
     }
   }
-
-  // update(time: number, delta: number) {
-  //   // Most logic is now handled by timers and input events
-  // }
 }
 
-// Keep the game export the same
+// Game export
 export const game = (el: HTMLDivElement) =>
   new Phaser.Game({
     type: Phaser.AUTO,
@@ -509,13 +823,11 @@ export const game = (el: HTMLDivElement) =>
     parent: el,
     scene: MuroTaisen,
     physics: {
-      // Enable physics if needed later for effects, but not core logic
       default: "arcade",
       arcade: {
-        gravity: { y: 0, x: 0 }, // No global gravity affecting puzzle pieces
+        gravity: { y: 0, x: 0 },
         debug: false,
       },
     },
-    // Optional: Set background color
     backgroundColor: "#2d2d2d",
   });
