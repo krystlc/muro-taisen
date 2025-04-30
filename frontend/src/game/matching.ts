@@ -9,7 +9,7 @@ export interface MatchGroup {
 
 export class MatchingSystem {
   // Minimum number of matching blocks needed for a match
-  private static readonly MIN_MATCH_COUNT = 3;
+  private static readonly MIN_MATCH_COUNT = 2;
 
   /**
    * Find all matching groups in the grid
@@ -33,7 +33,10 @@ export class MatchingSystem {
         );
 
         // If enough blocks for a match
-        if (matchingBlocks.length >= this.MIN_MATCH_COUNT) {
+        if (
+          matchingBlocks.length >= this.MIN_MATCH_COUNT &&
+          matchingBlocks.some((b) => b.blockType === BlockType.CRASH_GEM)
+        ) {
           matches.push({
             blocks: matchingBlocks,
             color: block.gemColor,
@@ -107,6 +110,7 @@ export class MatchingSystem {
     matches: MatchGroup[],
     grid: (Block | null)[][]
   ): Block[] {
+    return [];
     const additionalBlocksToRemove: Block[] = [];
 
     // Find crash gems in matching groups

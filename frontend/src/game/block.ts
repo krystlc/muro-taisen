@@ -6,9 +6,7 @@ import { CELL_SIZE } from "./constants";
 export enum GemColor {
   RED = 0xff0000,
   GREEN = 0x00ff00,
-  BLUE = 0x0000ff,
   YELLOW = 0xffff00,
-  PURPLE = 0x800080,
   CYAN = 0x00ffff,
 }
 
@@ -51,11 +49,11 @@ export class Block extends Phaser.GameObjects.Sprite {
     // Different setup based on block type
     if (blockType === BlockType.GEM) {
       // Regular block
-      this.setTexture("block");
+      // this.setTexture("block");
       this.setDisplaySize(CELL_SIZE - 2, CELL_SIZE - 2); // Slightly smaller to show grid
     } else {
       // Crash gem (orb)
-      this.setTexture("block"); // Use same texture for consistency
+      // this.setTexture("orb"); // Use same texture for consistency
       this.setDisplaySize(CELL_SIZE - 4, CELL_SIZE - 4); // Slightly smaller
       // Create a circular shape instead
       this.createCrashGemVisual();
@@ -74,7 +72,7 @@ export class Block extends Phaser.GameObjects.Sprite {
     this.updateHighlight();
 
     // Make the block itself more transparent
-    this.setAlpha(0.7);
+    // this.setAlpha(0.2);
   }
 
   // Update the highlight position
@@ -88,7 +86,7 @@ export class Block extends Phaser.GameObjects.Sprite {
     this.highlight.strokeCircle(this.x, this.y, CELL_SIZE / 2 - 3);
 
     // Draw a filled circle with the block's color
-    this.highlight.fillStyle(this.gemColor, 0.5);
+    this.highlight.fillStyle(this.gemColor, 0.25);
     this.highlight.fillCircle(this.x, this.y, CELL_SIZE / 2 - 4);
   }
 
@@ -123,5 +121,10 @@ export class Block extends Phaser.GameObjects.Sprite {
       this.highlight = null;
     }
     super.destroy(fromScene);
+  }
+
+  explode() {
+    // TODO: maybe add some animation?
+    this.destroy();
   }
 }

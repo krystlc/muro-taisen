@@ -2,7 +2,7 @@
 import Phaser from "phaser";
 import { GRID_WIDTH, GRID_HEIGHT, CELL_SIZE, FALL_SPEED } from "./constants";
 import { Block, GemColor, BlockType } from "./block";
-import { MatchingSystem, MatchGroup } from "./matching";
+import { MatchingSystem } from "./matching";
 import { EffectsManager } from "./effects";
 
 // Helper type for the grid
@@ -167,7 +167,7 @@ class MuroTaisen extends Phaser.Scene {
 
     // Always use the block texture (more reliable sizing)
     // but differentiate with a different tint or scale for special blocks
-    const texture = "block";
+    const texture = isSpecial ? "orb" : "block";
 
     return { gemType, texture };
   }
@@ -405,6 +405,14 @@ class MuroTaisen extends Phaser.Scene {
 
     // Trigger match checking
     this.checkForMatches();
+    // // --- NEXT STEPS: Trigger Check for Matches/Clears ---
+    // let blocksToCheck = [block1, block2]; // Start checking from the newly landed blocks
+    // this.processClears(blocksToCheck);
+    // // If clears happen, wait for animations/gravity, then spawn
+
+    // // For now, just spawn the next piece immediately
+    // this.spawnNewPiece();
+    // this.setupFallTimer(); // Restart the timer for the new piece
   }
 
   getFloorCoordinates(activePiece: ActivePiece) {
@@ -664,6 +672,187 @@ class MuroTaisen extends Phaser.Scene {
     }
   }
 
+  isWithinGridBounds(x: number, y: number) {
+    return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
+  }
+
+  /**
+   * Finds all connected blocks of the same color starting from a specific block,
+   * typically initiated by a Crash Gem. Uses Breadth-First Search (BFS).
+   *
+   * @param startBlock The block to start the search from (usually a Crash Gem).
+   * @param targetColor The color to match.
+   * @param visited A Set to keep track of visited blocks during a single clearing phase,
+   * passed between calls if multiple Crash Gems trigger clears simultaneously.
+   * @returns A Set of all connected blocks (including startBlock) matching targetColor.
+   */
+  private findConnectedBlocks(
+    startBlock: Block,
+    targetColor: GemColor,
+    visited: Set<Block> // Keep track across searches within the same "clear cycle"
+  ): Set<Block> {
+    const blocksFound = new Set<Block>();
+    const queue: Block[] = [];
+    let firstCycle = true;
+
+    // Don't start search if the start block itself was already visited
+    // (e.g., part of a group found by another simultaneous crash gem)
+    if (visited.has(startBlock)) {
+      return blocksFound; // Empty set, already processed
+    }
+
+    // Start the search
+    queue.push(startBlock);
+    visited.add(startBlock);
+
+    // Explore neighbors (Up, Down, Left, Right)
+    const neighborsCoords = [
+      { dx: 0, dy: -1 }, // Up
+      { dx: 0, dy: 1 }, // Down
+      { dx: -1, dy: 0 }, // Left
+      { dx: 1, dy: 0 }, // Right
+    ];
+
+    while (queue.length > 0) {
+      const currentBlock = queue.shift()!; // Get the next block to process
+
+      if (!firstCycle) blocksFound.add(currentBlock); // Add it to the result set
+
+      for (const { dx, dy } of neighborsCoords) {
+        const nextX = currentBlock.gridX + dx;
+        const nextY = currentBlock.gridY + dy;
+
+        // Check if neighbor is within grid bounds
+        if (this.isWithinGridBounds(nextX, nextY)) {
+          const neighborBlock = this.grid[nextY][nextX];
+          console.log({
+            dx,
+            dy,
+            neighborBlock,
+            color: neighborBlock ? GemColor[neighborBlock?.gemColor] : null,
+          });
+
+          // Check if neighbor exists, matches color, is a Gem/CrashGem, hasn't been visited yet
+          if (
+            neighborBlock &&
+            !visited.has(neighborBlock) &&
+            neighborBlock.gemColor === targetColor
+          ) {
+            visited.add(neighborBlock); // Mark as visited for this entire clear cycle
+            queue.push(neighborBlock); // Add to queue for processing
+          }
+        }
+      }
+
+      if (
+        firstCycle &&
+        currentBlock.blockType === BlockType.GEM &&
+        queue.every((b) => b.blockType === BlockType.GEM)
+      ) {
+        queue.length = 0;
+      }
+
+      if (firstCycle && queue.length) {
+        blocksFound.add(currentBlock);
+      }
+
+      firstCycle = false;
+      // If currentBlock is not the target color or type, we simply don't add it or search its neighbors
+      // for this specific color group, but it remains marked as 'visited' for this cycle
+      // if it was added to the queue by a valid neighbor previously.
+    }
+
+    return blocksFound;
+  }
+
+  /**
+   * Checks for and processes block clears triggered by newly landed blocks.
+   * @param landedBlocks The specific blocks that just finished falling/locking.
+   */
+  private processClears(landedBlocks: Block[]) {
+    console.log(
+      "Checking clears for landed blocks:",
+      landedBlocks.map(
+        (b) =>
+          `${BlockType[b.blockType]}(${GemColor[b.gemColor]})@(${b.gridX},${
+            b.gridY
+          })`
+      )
+    );
+
+    const allBlocksToClear = new Set<Block>();
+    const visitedDuringCycle = new Set<Block>(); // Tracks all visited blocks in this clear cycle
+
+    // 2. For each triggering Crash Gem, find its connected group
+    for (const originBlock of landedBlocks) {
+      // Skip if this gem was already cleared by another simultaneous gem's search
+      if (allBlocksToClear.has(originBlock)) continue;
+
+      const targetColor = originBlock.gemColor;
+      console.log(
+        `Searching from Crash Gem @(${originBlock.gridX},${originBlock.gridY}) for color ${GemColor[targetColor]}`
+      );
+
+      // Perform the search. Pass the visited set so searches don't overlap wastefully.
+      const group = this.findConnectedBlocks(
+        originBlock,
+        targetColor,
+        visitedDuringCycle
+      );
+
+      // Add the found group to the main set of blocks to clear
+      group.forEach((block) => allBlocksToClear.add(block));
+    }
+
+    // 3. Check if any blocks were actually marked for clearing
+    if (allBlocksToClear.size === 0) {
+      console.log("Crash gems landed but found no matching blocks to clear.");
+      // Crash gem landed but didn't connect to anything of its color.
+      return; // Nothing to clear
+    }
+
+    console.log(`Found ${allBlocksToClear.size} blocks to clear.`);
+
+    // --- TODO: Add scoring logic based on size/chains here ---
+
+    // 4. Clear the blocks
+    this.clearBlocksFromGrid(allBlocksToClear);
+
+    // --- NEXT STEPS after clearing ---
+    // 5. Trigger Gravity (Needs implementation)
+    // this.applyGravity(); // This function would handle falling blocks and return if anything moved
+
+    // 6. Check for Chain Reactions (Needs implementation)
+    // After gravity, if blocks fell, call processClears() again?
+    // This needs careful state management to avoid infinite loops and ensure
+    // spawning only happens after everything settles.
+
+    // For now, assume no gravity/chains and proceed to spawn
+    console.log("Clearing finished. Proceeding to spawn.");
+  }
+
+  /**
+   * Removes blocks from the grid and destroys their sprites.
+   * @param blocksToClear The set of blocks to remove.
+   */
+  clearBlocksFromGrid(blocksToClear: Set<Block>) {
+    blocksToClear.forEach((block) => {
+      if (this.isWithinGridBounds(block.gridX, block.gridY)) {
+        // Check if the block at the grid position is indeed the one we intend to clear
+        // (Handles cases where the grid might have changed unexpectedly)
+        if (this.grid[block.gridY][block.gridX] === block) {
+          this.grid[block.gridY][block.gridX] = null; // Remove from grid data
+        } else {
+          console.warn(
+            `Block mismatch during clear at (${block.gridX}, ${block.gridY})`
+          );
+        }
+      }
+      block.explode(); // Remove sprite from scene
+    });
+    // --- TODO: Play clearing sound effect ---
+  }
+
   // --- Helper Functions ---
   updateActivePiecePositions() {
     if (!this.activePiece) return;
@@ -731,7 +920,7 @@ class MuroTaisen extends Phaser.Scene {
     if (this.fallTimer) this.fallTimer.remove(false);
 
     // Create a semi-transparent background for the game over message
-    const overlay = this.add
+    this.add
       .rectangle(
         this.cameras.main.centerX,
         this.cameras.main.centerY,
@@ -743,7 +932,7 @@ class MuroTaisen extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Display game over text with proper positioning
-    const gameOverText = this.add
+    this.add
       .text(
         this.cameras.main.centerX,
         this.cameras.main.centerY - 50,
