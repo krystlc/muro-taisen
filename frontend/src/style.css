@@ -1,1 +1,8 @@
+/* frontend/src/style.css */
 @import "tailwindcss";
+
+/* make container fill the viewport */
+html, body, #app, #game-container {
+  width: 100%;
+  height: 100%;
+}
