@@ -1,4 +1,4 @@
-import { game } from "./game";
+import { initGame } from "./game";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div>
@@ -9,5 +9,5 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   </div>
 `;
 
-const puzzleGame = game(document.querySelector("#game-container")!);
+const puzzleGame = initGame(document.querySelector("#game-container")!);
 console.log(puzzleGame);
