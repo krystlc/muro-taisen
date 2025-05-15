@@ -5,6 +5,12 @@ import { Block, GemColor, BlockType } from "./block";
 import { MatchingSystem } from "./matching";
 import { EffectsManager } from "./effects";
 
+interface MuroTaisenConfig {
+  gridX: number;
+  gridY: number;
+  sceneKey: string;
+}
+
 // Helper type for the grid
 type GameGrid = (Block | null)[][];
 
@@ -34,35 +40,21 @@ export default class MuroTaisen extends Phaser.Scene {
   private moveRepeatDelay: number = 150; // ms delay for holding key down
   private moveFirstDelay: number = 200; // ms delay before repeat starts
   private matchAnimationPlaying: boolean = false; // Flag to track if match animations are playing
-  private score: number = 0;
-  private comboCount: number = 0;
-  private effectsManager!: EffectsManager;
+  private score = 0;
+  private comboCount = 0;
+  private effectsManager?: EffectsManager;
+  readonly sceneKey: string;
+  private readonly gridOffsetX: number;
+  private readonly gridOffsetY: number;
 
-  constructor() {
-    super("MuroTaisen");
+  constructor(scene: Phaser.Scene, config: MuroTaisenConfig) {
+    super(config.sceneKey);
+    this.sceneKey = config.sceneKey;
+    this.gridOffsetX = config.gridX;
+    this.gridOffsetY = config.gridY;
   }
 
-  preload() {
-    this.load.setPath("assets");
-    this.load.image("orb", "orb.png");
-    this.load.image("block", "block.png");
-
-    // Add a loading event to check the image dimensions
-    this.load.on("filecomplete-image-orb", () => {
-      const orbTexture = this.textures.get("orb");
-      console.log(
-        "Orb texture loaded, dimensions:",
-        orbTexture.source[0].width,
-        "x",
-        orbTexture.source[0].height
-      );
-
-      // Reset the texture if it's too large
-      if (orbTexture.source[0].width > 64 || orbTexture.source[0].height > 64) {
-        console.warn("Orb texture is too large, resizing might be needed");
-      }
-    });
-  }
+  preload() {}
 
   create() {
     this.initializeGrid();
@@ -115,7 +107,7 @@ export default class MuroTaisen extends Phaser.Scene {
     // Reset combo count when a new piece is spawned
     this.comboCount = 0;
 
-    const startX = Math.floor(GRID_WIDTH / 2) - 1;
+    const startX = Phaser.Math.RND.between(0, GRID_WIDTH - 1);
     const startY = 0;
 
     const color1 = this.getRandomColor();
@@ -529,7 +521,7 @@ export default class MuroTaisen extends Phaser.Scene {
     }
 
     // Show floating score text
-    this.effectsManager.createScorePopup(
+    this.effectsManager?.createScorePopup(
       this.cameras.main.centerX,
       this.cameras.main.centerY,
       points
@@ -537,7 +529,7 @@ export default class MuroTaisen extends Phaser.Scene {
 
     // Show combo effect for 2+ combos
     if (this.comboCount > 1) {
-      this.effectsManager.createComboEffect(
+      this.effectsManager?.createComboEffect(
         this.cameras.main.centerX,
         this.cameras.main.height / 4,
         this.comboCount
@@ -570,18 +562,20 @@ export default class MuroTaisen extends Phaser.Scene {
       block.flash();
 
       // Calculate block position
-      const pixelX = block.gridX * CELL_SIZE + CELL_SIZE / 2;
+      // const pixelX = block.gridX * CELL_SIZE + CELL_SIZE / 2;
+      const pixelX =
+        ((this.gridOffsetX + block.gridX) * CELL_SIZE + CELL_SIZE) / 2;
       const pixelY = block.gridY * CELL_SIZE + CELL_SIZE / 2;
 
       // Create a small localized effect
       if (block.blockType === BlockType.CRASH_GEM) {
-        this.effectsManager.createCrashGemEffect(
+        this.effectsManager?.createCrashGemEffect(
           pixelX,
           pixelY,
           block.gemColor
         );
       } else {
-        this.effectsManager.createMatchClearEffect(
+        this.effectsManager?.createMatchClearEffect(
           pixelX,
           pixelY,
           block.gemColor
@@ -717,12 +711,6 @@ export default class MuroTaisen extends Phaser.Scene {
         // Check if neighbor is within grid bounds
         if (this.isWithinGridBounds(nextX, nextY)) {
           const neighborBlock = this.grid[nextY][nextX];
-          console.log({
-            dx,
-            dy,
-            neighborBlock,
-            color: neighborBlock ? GemColor[neighborBlock?.gemColor] : null,
-          });
 
           // Check if neighbor exists, matches color, is a Gem/CrashGem, hasn't been visited yet
           if (
@@ -959,7 +947,6 @@ export default class MuroTaisen extends Phaser.Scene {
     }
   }
 
-  // --- Debug Drawing ---
   drawGridLines() {
     const graphics = this.add.graphics({
       lineStyle: { width: 1, color: 0x444444 },
@@ -967,18 +954,18 @@ export default class MuroTaisen extends Phaser.Scene {
     // Vertical lines
     for (let x = 0; x <= GRID_WIDTH; x++) {
       graphics.lineBetween(
-        x * CELL_SIZE,
+        x * CELL_SIZE + this.gridOffsetX,
         0,
-        x * CELL_SIZE,
+        x * CELL_SIZE + this.gridOffsetX,
         GRID_HEIGHT * CELL_SIZE
       );
     }
     // Horizontal lines
     for (let y = 0; y <= GRID_HEIGHT; y++) {
       graphics.lineBetween(
-        0,
+        0 + this.gridOffsetX,
         y * CELL_SIZE,
-        GRID_WIDTH * CELL_SIZE,
+        GRID_WIDTH * CELL_SIZE + this.gridOffsetX,
         y * CELL_SIZE
       );
     }

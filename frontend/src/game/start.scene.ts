@@ -26,11 +26,11 @@ export default class StartScene extends Phaser.Scene {
       .setInteractive();
 
     startText.on("pointerdown", () => {
-      this.scene.start("MuroTaisen");
+      this.scene.start("SinglePlayerScene");
     });
 
     this.input.keyboard?.on("keydown-ENTER", () => {
-      this.scene.start("MuroTaisen");
+      this.scene.start("SinglePlayerScene");
     });
 
     // High score display (we'll need to save and load this later)
