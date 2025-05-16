@@ -96,7 +96,6 @@ export class Block extends Phaser.GameObjects.Sprite {
   // Helper to update position based on grid coordinates
   updatePosition() {
     this.x = this.pixelXOffset + this.gridX * CELL_SIZE + CELL_SIZE / 2;
-    console.log(this.gridX, CELL_SIZE, this.x);
     this.y = this.gridY * CELL_SIZE + CELL_SIZE / 2;
 
     // Update highlight if it exists
@@ -119,12 +118,11 @@ export class Block extends Phaser.GameObjects.Sprite {
   }
 
   // Clean up resources when destroyed
-  destroy(fromScene?: boolean) {
+  destroy() {
     if (this.highlight) {
       this.highlight.destroy();
       this.highlight = null;
     }
-    super.destroy(fromScene);
   }
 
   explode() {

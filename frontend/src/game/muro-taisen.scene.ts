@@ -65,7 +65,7 @@ export default class MuroTaisen extends Phaser.Scene {
 
     // Setup score text
     this.add
-      .text(10, 10, "Score: 0", {
+      .text(10 + this.gridOffsetX, 10, "Score: 0", {
         color: "#ffffff",
         fontSize: "18px",
       })
@@ -899,45 +899,6 @@ export default class MuroTaisen extends Phaser.Scene {
     this.scene.pause();
     if (this.fallTimer) this.fallTimer.remove(false);
 
-    // Create a semi-transparent background for the game over message
-    this.add
-      .rectangle(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY,
-        this.cameras.main.width * 0.8,
-        this.cameras.main.height * 0.5,
-        0x000000,
-        0.7
-      )
-      .setOrigin(0.5);
-
-    // Display game over text with proper positioning
-    this.add
-      .text(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY - 50,
-        "GAME OVER",
-        {
-          fontSize: "32px",
-          color: "#ff0000",
-          fontStyle: "bold",
-        }
-      )
-      .setOrigin(0.5);
-
-    // Add final score display with proper positioning
-    this.add
-      .text(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY,
-        `Score: ${this.score}`,
-        {
-          fontSize: "24px",
-          color: "#ffffff",
-        }
-      )
-      .setOrigin(0.5);
-
     const highScore = localStorage.getItem("highScore");
     const currentHighScore = highScore ? parseInt(highScore, 10) : 0;
 
@@ -945,6 +906,8 @@ export default class MuroTaisen extends Phaser.Scene {
       localStorage.setItem("highScore", String(this.score));
       console.log(`New High Score: ${this.score}`);
     }
+
+    this.scene.start("GameOverScene");
   }
 
   drawGridLines() {

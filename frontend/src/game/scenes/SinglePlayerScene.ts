@@ -63,7 +63,7 @@ export default class SinglePlayerScene extends Phaser.Scene {
       gridY: gameY,
       sceneKey: "AiGameScene", // Unique key for this instance's scene
     });
-    this.scene.add(this.aiGame.sceneKey, this.aiGame, true); // Add and start the scene
+    this.scene.add(this.aiGame.sceneKey, this.aiGame, false); // Add and start the scene
   }
 
   update() {

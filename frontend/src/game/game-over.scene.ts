@@ -63,7 +63,7 @@ export default class GameOverScene extends Phaser.Scene {
   }
 
   restartGame() {
-    this.scene.start("MuroTaisen");
+    this.scene.start("SinglePlayerScene");
   }
 
   returnToStartScene() {
