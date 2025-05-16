@@ -50,20 +50,28 @@ export default class SinglePlayerScene extends Phaser.Scene {
     const gameY = (this.gameHeight - GRID_HEIGHT * CELL_SIZE) / 2; // Center vertically
 
     // Instantiate the player's game
-    this.playerGame = new MuroTaisen(this, {
-      gridX: playerGameX,
-      gridY: gameY,
-      sceneKey: "PlayerGameScene", // Unique key for this instance's scene
-    });
-    this.scene.add(this.playerGame.sceneKey, this.playerGame, true); // Add and start the scene
+    if (this.playerGame) {
+      this.scene.start("PlayerGameScene");
+    } else {
+      this.playerGame = new MuroTaisen(this, {
+        gridX: playerGameX,
+        gridY: gameY,
+        sceneKey: "PlayerGameScene", // Unique key for this instance's scene
+      });
+      this.scene.add(this.playerGame.sceneKey, this.playerGame, true); // Add and start the scene
+    }
 
-    // Instantiate the AI's game
-    this.aiGame = new MuroTaisen(this, {
-      gridX: aiGameX,
-      gridY: gameY,
-      sceneKey: "AiGameScene", // Unique key for this instance's scene
-    });
-    this.scene.add(this.aiGame.sceneKey, this.aiGame, false); // Add and start the scene
+    if (this.aiGame) {
+      // this.scene.start("AiGameScene");
+    } else {
+      // Instantiate the AI's game
+      this.aiGame = new MuroTaisen(this, {
+        gridX: aiGameX,
+        gridY: gameY,
+        sceneKey: "AiGameScene", // Unique key for this instance's scene
+      });
+      this.scene.add(this.aiGame.sceneKey, this.aiGame, false); // Add and start the scene
+    }
   }
 
   update() {
