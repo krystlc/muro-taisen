@@ -4,12 +4,11 @@ import MuroTaisen from "../muro-taisen.scene";
 import { GRID_WIDTH, CELL_SIZE, GRID_HEIGHT } from "../constants";
 
 export default class SinglePlayerScene extends Phaser.Scene {
-  private playerGame?: MuroTaisen;
-  private aiGame?: MuroTaisen;
+  private player1Game?: MuroTaisen;
+  private player2Game?: MuroTaisen;
   // private autoPlayer: AutoPlayer;
   private gameWidth?: number;
   private gameHeight?: number;
-  private middleSeparatorX?: number;
   private readonly gameAreaWidth = GRID_WIDTH * CELL_SIZE;
 
   constructor() {
@@ -42,7 +41,6 @@ export default class SinglePlayerScene extends Phaser.Scene {
   create() {
     this.gameWidth = this.scale.width;
     this.gameHeight = this.scale.height;
-    this.middleSeparatorX = this.gameWidth / 2; // Initial guess, adjust as needed
 
     // Calculate positions for the two game areas
     const playerGameX = 0;
@@ -50,28 +48,48 @@ export default class SinglePlayerScene extends Phaser.Scene {
     const gameY = (this.gameHeight - GRID_HEIGHT * CELL_SIZE) / 2; // Center vertically
 
     // Instantiate the player's game
-    if (this.playerGame) {
+    if (this.player1Game) {
       this.scene.start("PlayerGameScene");
     } else {
-      this.playerGame = new MuroTaisen(this, {
+      this.player1Game = new MuroTaisen(this, {
         gridX: playerGameX,
         gridY: gameY,
         sceneKey: "PlayerGameScene", // Unique key for this instance's scene
       });
-      this.scene.add(this.playerGame.sceneKey, this.playerGame, true); // Add and start the scene
+      this.scene.add(this.player1Game.sceneKey, this.player1Game, true); // Add and start the scene
+      this.player1Game.events.on(
+        "blocksCleared",
+        this.calculateDump(this.player1Game.sceneKey)
+      );
     }
 
-    if (this.aiGame) {
-      // this.scene.start("AiGameScene");
+    if (this.player2Game) {
+      this.scene.start("AiGameScene");
     } else {
       // Instantiate the AI's game
-      this.aiGame = new MuroTaisen(this, {
+      this.player2Game = new MuroTaisen(this, {
         gridX: aiGameX,
         gridY: gameY,
         sceneKey: "AiGameScene", // Unique key for this instance's scene
       });
-      this.scene.add(this.aiGame.sceneKey, this.aiGame, false); // Add and start the scene
+      this.scene.add(this.player2Game.sceneKey, this.player2Game, true); // Add and start the scene
+      this.player1Game.events.on(
+        "blocksCleared",
+        this.calculateDump(this.player2Game.sceneKey)
+      );
     }
+  }
+
+  private calculateDump(clearingSceneKey: string) {
+    return (clearedCount: number) => {
+      const garbageToSend = Math.floor(clearedCount / 3); // Example scaling
+
+      if (clearingSceneKey === this.player1Game?.sceneKey) {
+        this.player2Game?.receiveGarbageBlocks(garbageToSend);
+      } else if (clearingSceneKey === this.player2Game?.sceneKey) {
+        this.player1Game?.receiveGarbageBlocks(garbageToSend);
+      }
+    };
   }
 
   update() {
