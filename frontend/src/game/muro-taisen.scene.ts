@@ -30,6 +30,15 @@ interface ActivePiece {
   pivotGridX: number;
   pivotGridY: number;
 }
+type GameState =
+  | "idle"
+  | "spawning"
+  | "falling"
+  | "landing"
+  | "gravityCascade"
+  | "checkingExplosions"
+  | "exploding"
+  | "gameOver";
 
 export default class MuroTaisen extends Phaser.Scene {
   private grid: GameGrid = [];
@@ -39,22 +48,30 @@ export default class MuroTaisen extends Phaser.Scene {
   private moveDelayTimer: Phaser.Time.TimerEvent | null = null; // Prevent instant repeated moves
   private moveRepeatDelay: number = 150; // ms delay for holding key down
   private moveFirstDelay: number = 200; // ms delay before repeat starts
+
+  // TODO: replace with update() + gameState game loop
   private matchAnimationPlaying: boolean = false; // Flag to track if match animations are playing
   private score = 0;
   private comboCount = 0;
   private effectsManager?: EffectsManager;
   readonly sceneKey: string;
   private readonly gridOffsetX: number;
-  private readonly gridOffsetY: number;
+  // private readonly gridOffsetY: number;
+
+  // TODO: use `update()` and this `gameState` for game loop
+  gameState: GameState = "idle";
+  private attackHp = 0;
 
   constructor(_scene: Phaser.Scene, config: MuroTaisenConfig) {
     super(config.sceneKey);
     this.sceneKey = config.sceneKey;
     this.gridOffsetX = config.gridX;
-    this.gridOffsetY = config.gridY;
+    // this.gridOffsetY = config.gridY;
   }
 
-  preload() {}
+  getScore() {
+    return this.score;
+  }
 
   create() {
     this.initializeGrid();
@@ -91,12 +108,36 @@ export default class MuroTaisen extends Phaser.Scene {
     }
   }
 
+  drawGridLines() {
+    const graphics = this.add.graphics({
+      lineStyle: { width: 1, color: 0x444444 },
+    });
+    // Vertical lines
+    for (let x = 0; x <= GRID_WIDTH; x++) {
+      graphics.lineBetween(
+        x * CELL_SIZE + this.gridOffsetX,
+        0,
+        x * CELL_SIZE + this.gridOffsetX,
+        GRID_HEIGHT * CELL_SIZE
+      );
+    }
+    // Horizontal lines
+    for (let y = 0; y <= GRID_HEIGHT; y++) {
+      graphics.lineBetween(
+        0 + this.gridOffsetX,
+        y * CELL_SIZE,
+        GRID_WIDTH * CELL_SIZE + this.gridOffsetX,
+        y * CELL_SIZE
+      );
+    }
+  }
+
   // --- Piece Spawning ---
   spawnNewPiece() {
     // Reset combo count when a new piece is spawned
     this.comboCount = 0;
 
-    const startX = Phaser.Math.RND.between(0, GRID_WIDTH - 1);
+    const startX = Phaser.Math.RND.integerInRange(0, GRID_WIDTH - 1);
     const startY = 0;
 
     const color1 = this.getRandomColor();
@@ -311,6 +352,7 @@ export default class MuroTaisen extends Phaser.Scene {
   handleSoftDrop() {
     if (!this.fallTimer || this.matchAnimationPlaying) return;
     // Increase fall speed temporarily
+    // @ts-ignore
     this.fallTimer.delay = FALL_SPEED / 10;
     // Immediately trigger a move down if possible
     this.movePieceDown();
@@ -318,6 +360,7 @@ export default class MuroTaisen extends Phaser.Scene {
 
   resetFallSpeed() {
     if (!this.fallTimer) return;
+    // @ts-ignore
     this.fallTimer.delay = FALL_SPEED;
   }
 
@@ -465,33 +508,47 @@ export default class MuroTaisen extends Phaser.Scene {
       matches.forEach((match) => allBlocksToRemove.push(...match.blocks));
 
       // Update score based on matches
-      this.updateScore(matches.length, allBlocksToRemove.length);
+      const hitPoints = this.updateScore(
+        matches.length,
+        allBlocksToRemove.length
+      );
+      this.attackHp += hitPoints;
 
       // Animate and remove matched blocks
       this.animateAndRemoveBlocks(allBlocksToRemove, () => {
         // After animation, apply gravity to blocks above
         this.applyGravity(() => {
           // Check for cascading matches
-          this.events.emit("blocksCleared", allBlocksToRemove.length);
           this.checkForMatches();
         });
       });
     } else {
       // No matches, spawn next piece
       this.matchAnimationPlaying = false;
+      this.attackOpponent();
       this.spawnNewPiece();
       this.setupFallTimer();
     }
   }
 
-  receiveGarbageBlocks(amount = 0) {
-    for (let i = 0; i < amount; i++) {
-      const randomX = Phaser.Math.RND.integerInRange(0, GRID_WIDTH - 1);
+  attackOpponent() {
+    if (this.attackHp)
+      this.events.emit("attack", Math.max(1, this.attackHp / 10));
+    this.attackHp = 0;
+  }
+
+  handleAttack(hitPoints = 0) {
+    let x = 0;
+    for (let i = 0; i < hitPoints; i++) {
+      if (x >= GRID_WIDTH - 1) {
+        x = 0;
+      }
+
       const garbageColor = this.getRandomColor();
 
       // Find the lowest empty cell at the top of the grid in the random column
       let y = 0;
-      while (y < GRID_HEIGHT && this.grid[y][randomX] === null) {
+      while (y < GRID_HEIGHT && this.grid[y][x] === null) {
         y++;
       }
       y--; // Go back to the last empty cell
@@ -502,9 +559,9 @@ export default class MuroTaisen extends Phaser.Scene {
       }
 
       // Optionally, we could create solid block sprites immediately to represent the garbage
-      console.log("this happened...");
-      const garbageBlock = new Block(this, randomX, y, "block", garbageColor);
-      this.grid[y][randomX] = garbageBlock;
+      const garbageBlock = new Block(this, x, y, "block", garbageColor);
+      this.grid[y][x] = garbageBlock;
+      x++;
     }
   }
 
@@ -549,6 +606,8 @@ export default class MuroTaisen extends Phaser.Scene {
         this.comboCount
       );
     }
+
+    return points;
   }
 
   animateAndRemoveBlocks(blocks: Block[], onComplete: () => void) {
@@ -671,32 +730,6 @@ export default class MuroTaisen extends Phaser.Scene {
     }
   }
 
-  isWithinGridBounds(x: number, y: number) {
-    return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
-  }
-
-  /**
-   * Removes blocks from the grid and destroys their sprites.
-   * @param blocksToClear The set of blocks to remove.
-   */
-  clearBlocksFromGrid(blocksToClear: Set<Block>) {
-    blocksToClear.forEach((block) => {
-      if (this.isWithinGridBounds(block.gridX, block.gridY)) {
-        // Check if the block at the grid position is indeed the one we intend to clear
-        // (Handles cases where the grid might have changed unexpectedly)
-        if (this.grid[block.gridY][block.gridX] === block) {
-          this.grid[block.gridY][block.gridX] = null; // Remove from grid data
-        } else {
-          console.warn(
-            `Block mismatch during clear at (${block.gridX}, ${block.gridY})`
-          );
-        }
-      }
-      block.explode(); // Remove sprite from scene
-    });
-    // --- TODO: Play clearing sound effect ---
-  }
-
   // --- Helper Functions ---
   updateActivePiecePositions() {
     if (!this.activePiece) return;
@@ -759,42 +792,7 @@ export default class MuroTaisen extends Phaser.Scene {
 
   // --- Game State ---
   gameOver() {
-    console.error("GAME OVER");
-    this.scene.pause();
     if (this.fallTimer) this.fallTimer.remove(false);
-
-    const highScore = localStorage.getItem("highScore");
-    const currentHighScore = highScore ? parseInt(highScore, 10) : 0;
-
-    if (this.score > currentHighScore) {
-      localStorage.setItem("highScore", String(this.score));
-      console.log(`New High Score: ${this.score}`);
-    }
-
-    this.scene.start("GameOverScene");
-  }
-
-  drawGridLines() {
-    const graphics = this.add.graphics({
-      lineStyle: { width: 1, color: 0x444444 },
-    });
-    // Vertical lines
-    for (let x = 0; x <= GRID_WIDTH; x++) {
-      graphics.lineBetween(
-        x * CELL_SIZE + this.gridOffsetX,
-        0,
-        x * CELL_SIZE + this.gridOffsetX,
-        GRID_HEIGHT * CELL_SIZE
-      );
-    }
-    // Horizontal lines
-    for (let y = 0; y <= GRID_HEIGHT; y++) {
-      graphics.lineBetween(
-        0 + this.gridOffsetX,
-        y * CELL_SIZE,
-        GRID_WIDTH * CELL_SIZE + this.gridOffsetX,
-        y * CELL_SIZE
-      );
-    }
+    this.events.emit("game-over");
   }
 }

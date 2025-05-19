@@ -4,8 +4,8 @@ import MuroTaisen from "../muro-taisen.scene";
 import { GRID_WIDTH, CELL_SIZE, GRID_HEIGHT } from "../constants";
 
 export default class SinglePlayerScene extends Phaser.Scene {
-  private player1Game?: MuroTaisen;
-  private player2Game?: MuroTaisen;
+  private player1Game: MuroTaisen | null = null;
+  private player2Game: MuroTaisen | null = null;
   // private autoPlayer: AutoPlayer;
   private gameWidth?: number;
   private gameHeight?: number;
@@ -48,48 +48,65 @@ export default class SinglePlayerScene extends Phaser.Scene {
     const gameY = (this.gameHeight - GRID_HEIGHT * CELL_SIZE) / 2; // Center vertically
 
     // Instantiate the player's game
-    if (this.player1Game) {
-      this.scene.start("PlayerGameScene");
-    } else {
-      this.player1Game = new MuroTaisen(this, {
-        gridX: playerGameX,
-        gridY: gameY,
-        sceneKey: "PlayerGameScene", // Unique key for this instance's scene
-      });
-      this.scene.add(this.player1Game.sceneKey, this.player1Game, true); // Add and start the scene
-      this.player1Game.events.on(
-        "blocksCleared",
-        this.calculateDump(this.player1Game.sceneKey)
-      );
-    }
+    this.player1Game = new MuroTaisen(this, {
+      gridX: playerGameX,
+      gridY: gameY,
+      sceneKey: "PlayerGameScene", // Unique key for this instance's scene
+    });
 
-    if (this.player2Game) {
-      this.scene.start("AiGameScene");
-    } else {
-      // Instantiate the AI's game
-      this.player2Game = new MuroTaisen(this, {
-        gridX: aiGameX,
-        gridY: gameY,
-        sceneKey: "AiGameScene", // Unique key for this instance's scene
-      });
-      this.scene.add(this.player2Game.sceneKey, this.player2Game, true); // Add and start the scene
-      this.player1Game.events.on(
-        "blocksCleared",
-        this.calculateDump(this.player2Game.sceneKey)
-      );
-    }
+    // Instantiate the AI's game
+    this.player2Game = new MuroTaisen(this, {
+      gridX: aiGameX,
+      gridY: gameY,
+      sceneKey: "AiGameScene", // Unique key for this instance's scene
+    });
+
+    this.scene.add(this.player1Game.sceneKey, this.player1Game, true); // Add and start the scene
+    this.scene.add(this.player2Game.sceneKey, this.player2Game, true); // Add and start the scene
+
+    this.player1Game.events.on(
+      "attack",
+      this.player2Game.handleAttack,
+      this.player2Game
+    );
+    this.player2Game.events.on(
+      "attack",
+      this.player1Game.handleAttack,
+      this.player1Game
+    );
+
+    this.player1Game.events.on("game-over", this.handleGameOver.bind(this));
+    this.player2Game.events.on("game-over", this.handleWin.bind(this));
   }
 
-  private calculateDump(clearingSceneKey: string) {
-    return (clearedCount: number) => {
-      const garbageToSend = Math.floor(clearedCount / 3); // Example scaling
+  handleGameOver() {
+    console.error("GAME OVER");
+    this.clearGames();
+    this.scene.start("GameOverScene");
+  }
 
-      if (clearingSceneKey === this.player1Game?.sceneKey) {
-        this.player2Game?.receiveGarbageBlocks(garbageToSend);
-      } else if (clearingSceneKey === this.player2Game?.sceneKey) {
-        this.player1Game?.receiveGarbageBlocks(garbageToSend);
-      }
-    };
+  clearGames() {
+    this.scene.remove(this.player1Game?.sceneKey);
+    this.scene.remove(this.player2Game?.sceneKey);
+
+    this.player1Game = null;
+    this.player2Game = null;
+  }
+
+  handleWin() {
+    console.log("YOU WIN!");
+    this.clearGames();
+
+    const highScore = localStorage.getItem("highScore");
+    const currentHighScore = highScore ? parseInt(highScore, 10) : 0;
+
+    const score = this.player1Game?.getScore() ?? 0;
+    if (score > currentHighScore) {
+      localStorage.setItem("highScore", String(score));
+      console.log(`New High Score: ${score}`);
+    }
+
+    this.scene.start("StartScene");
   }
 
   update() {

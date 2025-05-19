@@ -39,12 +39,6 @@ export class Block extends Phaser.GameObjects.Sprite {
     // Calculate pixel coordinates from grid coordinates
     const pixelX =
       gridX * CELL_SIZE + CELL_SIZE / 2 + scene.children.parent.gridOffsetX;
-    console.log({
-      pixelX,
-      gridX,
-      CELL_SIZE,
-      offset: scene.children.parent.gridOffsetX,
-    });
     const pixelY = gridY * CELL_SIZE + CELL_SIZE / 2;
 
     super(scene, pixelX, pixelY, texture);
