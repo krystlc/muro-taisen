@@ -2,11 +2,14 @@
 import Phaser from "phaser";
 import MuroTaisen from "../muro-taisen.scene";
 import { GRID_WIDTH, CELL_SIZE, GRID_HEIGHT } from "../constants";
+import AutoPlayer from "../players/AutoPlayer";
+import LocalPlayer from "../players/LocalPlayer";
 
 export default class SinglePlayerScene extends Phaser.Scene {
   private player1Game: MuroTaisen | null = null;
   private player2Game: MuroTaisen | null = null;
-  // private autoPlayer: AutoPlayer;
+  private localPlayer: LocalPlayer | null = null;
+  private autoPlayer: AutoPlayer | null = null;
   private gameWidth?: number;
   private gameHeight?: number;
   private readonly gameAreaWidth = GRID_WIDTH * CELL_SIZE;
@@ -77,6 +80,14 @@ export default class SinglePlayerScene extends Phaser.Scene {
 
     this.player1Game.events.on("game-over", this.handleGameOver.bind(this));
     this.player2Game.events.on("game-over", this.handleWin.bind(this));
+
+    this.localPlayer = new LocalPlayer(this, this.player1Game, {
+      name: "Enzo",
+    });
+    this.autoPlayer = new AutoPlayer(this, this.player2Game, {
+      difficulty: "easy",
+    });
+    this.autoPlayer.start();
   }
 
   handleGameOver() {

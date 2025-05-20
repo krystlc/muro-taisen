@@ -41,10 +41,8 @@ type GameState =
   | "gameOver";
 
 export default class MuroTaisen extends Phaser.Scene {
-  private grid: GameGrid = [];
-  private activePiece: ActivePiece | null = null;
+  grid: GameGrid = [];
   private fallTimer: Phaser.Time.TimerEvent | null = null;
-  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
   private moveDelayTimer: Phaser.Time.TimerEvent | null = null; // Prevent instant repeated moves
   private moveRepeatDelay: number = 150; // ms delay for holding key down
   private moveFirstDelay: number = 200; // ms delay before repeat starts
@@ -57,6 +55,9 @@ export default class MuroTaisen extends Phaser.Scene {
   readonly sceneKey: string;
   private readonly gridOffsetX: number;
   // private readonly gridOffsetY: number;
+
+  activePiece: ActivePiece | null = null;
+  cursors?: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
 
   // TODO: use `update()` and this `gameState` for game loop
   gameState: GameState = "idle";
@@ -91,7 +92,6 @@ export default class MuroTaisen extends Phaser.Scene {
 
     this.spawnNewPiece();
     this.setupFallTimer();
-    this.setupInput();
 
     // Draw grid lines for visibility
     this.drawGridLines();
@@ -225,30 +225,6 @@ export default class MuroTaisen extends Phaser.Scene {
       // Cannot move down, lock the piece in place
       this.lockPiece();
     }
-  }
-
-  // --- Input Handling ---
-  setupInput() {
-    if (!this.cursors) return;
-
-    // --- Horizontal Movement ---
-    this.cursors.left.on("down", () => this.handleMoveInput(-1, 0));
-    this.cursors.right.on("down", () => this.handleMoveInput(1, 0));
-
-    // Stop repeating when key is released
-    this.cursors.left.on("up", () => this.clearMoveTimer());
-    this.cursors.right.on("up", () => this.clearMoveTimer());
-
-    // --- Rotation ---
-    this.input.keyboard?.on("keydown-SPACE", () => this.rotatePiece());
-    this.input.keyboard?.on("keydown-Z", () =>
-      this.rotatePieceCounterClockwise()
-    );
-    this.cursors.up.on("down", () => this.rotatePiece()); // Alternative
-
-    // --- Soft Drop ---
-    this.cursors.down.on("down", () => this.handleSoftDrop());
-    this.cursors.down.on("up", () => this.resetFallSpeed());
   }
 
   handleMoveInput(deltaX: number, deltaY: number) {
