@@ -4,8 +4,10 @@ type LocalPlayerConfig = {
   name: string;
 };
 export default class LocalPlayer {
-  private readonly scene: Phaser.Scene;
   private readonly game: MuroTaisen;
+  // @ts-ignore
+  private readonly scene: Phaser.Scene;
+  // @ts-ignore
   private readonly config: LocalPlayerConfig;
 
   constructor(
@@ -22,7 +24,6 @@ export default class LocalPlayer {
 
   // --- Input Handling ---
   setupInput() {
-    console.log({ game: this.game });
     if (!this.game.cursors) return;
 
     // --- Horizontal Movement ---

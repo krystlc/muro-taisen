@@ -8,6 +8,7 @@ import LocalPlayer from "../players/LocalPlayer";
 export default class SinglePlayerScene extends Phaser.Scene {
   private player1Game: MuroTaisen | null = null;
   private player2Game: MuroTaisen | null = null;
+  // @ts-ignore
   private localPlayer: LocalPlayer | null = null;
   private autoPlayer: AutoPlayer | null = null;
   private gameWidth?: number;
