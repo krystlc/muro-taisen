@@ -1,8 +1,11 @@
 // frontend/src/game/index.ts
 import { GRID_WIDTH, CELL_SIZE, GRID_HEIGHT } from "./constants";
-import GameOverScene      from "./game-over.scene";
-import MuroTaisen         from "./muro-taisen.scene";
-import StartScene         from "./start.scene";
+import GameOverScene from "./game-over.scene";
+import SinglePlayerScene from "./scenes/SinglePlayerScene";
+import StartScene from "./start.scene";
+
+const width = GRID_WIDTH * CELL_SIZE * 3;
+const height = GRID_HEIGHT * CELL_SIZE;
 
 export const initGame = (el: HTMLDivElement) =>
   new Phaser.Game({
@@ -12,12 +15,14 @@ export const initGame = (el: HTMLDivElement) =>
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
-      width:  GRID_WIDTH * CELL_SIZE,
-      height: GRID_HEIGHT * CELL_SIZE,
+      width,
+      height,
     },
-    scene: [StartScene, MuroTaisen, GameOverScene],
+    width,
+    height,
+    scene: [StartScene, SinglePlayerScene, GameOverScene],
     physics: {
       default: "arcade",
-      arcade: { gravity: { x:0,y:0 }, debug: false },
+      arcade: { gravity: { x: 0, y: 0 }, debug: false },
     },
   });

@@ -5,6 +5,12 @@ import { Block, GemColor, BlockType } from "./block";
 import { MatchingSystem } from "./matching";
 import { EffectsManager } from "./effects";
 
+interface MuroTaisenConfig {
+  gridX: number;
+  gridY: number;
+  sceneKey: string;
+}
+
 // Helper type for the grid
 type GameGrid = (Block | null)[][];
 
@@ -24,6 +30,15 @@ interface ActivePiece {
   pivotGridX: number;
   pivotGridY: number;
 }
+type GameState =
+  | "idle"
+  | "spawning"
+  | "falling"
+  | "landing"
+  | "gravityCascade"
+  | "checkingExplosions"
+  | "exploding"
+  | "gameOver";
 
 export default class MuroTaisen extends Phaser.Scene {
   private grid: GameGrid = [];
@@ -33,35 +48,29 @@ export default class MuroTaisen extends Phaser.Scene {
   private moveDelayTimer: Phaser.Time.TimerEvent | null = null; // Prevent instant repeated moves
   private moveRepeatDelay: number = 150; // ms delay for holding key down
   private moveFirstDelay: number = 200; // ms delay before repeat starts
-  private matchAnimationPlaying: boolean = false; // Flag to track if match animations are playing
-  private score: number = 0;
-  private comboCount: number = 0;
-  private effectsManager!: EffectsManager;
 
-  constructor() {
-    super("MuroTaisen");
+  // TODO: replace with update() + gameState game loop
+  private matchAnimationPlaying: boolean = false; // Flag to track if match animations are playing
+  private score = 0;
+  private comboCount = 0;
+  private effectsManager?: EffectsManager;
+  readonly sceneKey: string;
+  private readonly gridOffsetX: number;
+  // private readonly gridOffsetY: number;
+
+  // TODO: use `update()` and this `gameState` for game loop
+  gameState: GameState = "idle";
+  private attackHp = 0;
+
+  constructor(_scene: Phaser.Scene, config: MuroTaisenConfig) {
+    super(config.sceneKey);
+    this.sceneKey = config.sceneKey;
+    this.gridOffsetX = config.gridX;
+    // this.gridOffsetY = config.gridY;
   }
 
-  preload() {
-    this.load.setPath("assets");
-    this.load.image("orb", "orb.png");
-    this.load.image("block", "block.png");
-
-    // Add a loading event to check the image dimensions
-    this.load.on("filecomplete-image-orb", () => {
-      const orbTexture = this.textures.get("orb");
-      console.log(
-        "Orb texture loaded, dimensions:",
-        orbTexture.source[0].width,
-        "x",
-        orbTexture.source[0].height
-      );
-
-      // Reset the texture if it's too large
-      if (orbTexture.source[0].width > 64 || orbTexture.source[0].height > 64) {
-        console.warn("Orb texture is too large, resizing might be needed");
-      }
-    });
+  getScore() {
+    return this.score;
   }
 
   create() {
@@ -73,23 +82,12 @@ export default class MuroTaisen extends Phaser.Scene {
 
     // Setup score text
     this.add
-      .text(10, 10, "Score: 0", {
+      .text(10 + this.gridOffsetX, 10, "Score: 0", {
         color: "#ffffff",
         fontSize: "18px",
       })
       .setDepth(10)
       .setName("scoreText");
-
-    // Add combo text (initially hidden)
-    this.add
-      .text(this.cameras.main.centerX, 80, "", {
-        fontSize: "24px",
-        color: "#ffff00",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setAlpha(0)
-      .setName("comboText");
 
     this.spawnNewPiece();
     this.setupFallTimer();
@@ -110,12 +108,36 @@ export default class MuroTaisen extends Phaser.Scene {
     }
   }
 
+  drawGridLines() {
+    const graphics = this.add.graphics({
+      lineStyle: { width: 1, color: 0x444444 },
+    });
+    // Vertical lines
+    for (let x = 0; x <= GRID_WIDTH; x++) {
+      graphics.lineBetween(
+        x * CELL_SIZE + this.gridOffsetX,
+        0,
+        x * CELL_SIZE + this.gridOffsetX,
+        GRID_HEIGHT * CELL_SIZE
+      );
+    }
+    // Horizontal lines
+    for (let y = 0; y <= GRID_HEIGHT; y++) {
+      graphics.lineBetween(
+        0 + this.gridOffsetX,
+        y * CELL_SIZE,
+        GRID_WIDTH * CELL_SIZE + this.gridOffsetX,
+        y * CELL_SIZE
+      );
+    }
+  }
+
   // --- Piece Spawning ---
   spawnNewPiece() {
     // Reset combo count when a new piece is spawned
     this.comboCount = 0;
 
-    const startX = Math.floor(GRID_WIDTH / 2) - 1;
+    const startX = Phaser.Math.RND.integerInRange(0, GRID_WIDTH - 1);
     const startY = 0;
 
     const color1 = this.getRandomColor();
@@ -330,6 +352,7 @@ export default class MuroTaisen extends Phaser.Scene {
   handleSoftDrop() {
     if (!this.fallTimer || this.matchAnimationPlaying) return;
     // Increase fall speed temporarily
+    // @ts-ignore
     this.fallTimer.delay = FALL_SPEED / 10;
     // Immediately trigger a move down if possible
     this.movePieceDown();
@@ -337,6 +360,7 @@ export default class MuroTaisen extends Phaser.Scene {
 
   resetFallSpeed() {
     if (!this.fallTimer) return;
+    // @ts-ignore
     this.fallTimer.delay = FALL_SPEED;
   }
 
@@ -484,7 +508,11 @@ export default class MuroTaisen extends Phaser.Scene {
       matches.forEach((match) => allBlocksToRemove.push(...match.blocks));
 
       // Update score based on matches
-      this.updateScore(matches.length, allBlocksToRemove.length);
+      const hitPoints = this.updateScore(
+        matches.length,
+        allBlocksToRemove.length
+      );
+      this.attackHp += hitPoints;
 
       // Animate and remove matched blocks
       this.animateAndRemoveBlocks(allBlocksToRemove, () => {
@@ -497,8 +525,43 @@ export default class MuroTaisen extends Phaser.Scene {
     } else {
       // No matches, spawn next piece
       this.matchAnimationPlaying = false;
+      this.attackOpponent();
       this.spawnNewPiece();
       this.setupFallTimer();
+    }
+  }
+
+  attackOpponent() {
+    if (this.attackHp)
+      this.events.emit("attack", Math.max(1, this.attackHp / 10));
+    this.attackHp = 0;
+  }
+
+  handleAttack(hitPoints = 0) {
+    let x = 0;
+    for (let i = 0; i < hitPoints; i++) {
+      if (x >= GRID_WIDTH - 1) {
+        x = 0;
+      }
+
+      const garbageColor = this.getRandomColor();
+
+      // Find the lowest empty cell at the top of the grid in the random column
+      let y = 0;
+      while (y < GRID_HEIGHT && this.grid[y][x] === null) {
+        y++;
+      }
+      y--; // Go back to the last empty cell
+
+      if (y < 0) {
+        this.gameOver(); // Grid full at the top, game over
+        break;
+      }
+
+      // Optionally, we could create solid block sprites immediately to represent the garbage
+      const garbageBlock = new Block(this, x, y, "block", garbageColor);
+      this.grid[y][x] = garbageBlock;
+      x++;
     }
   }
 
@@ -529,7 +592,7 @@ export default class MuroTaisen extends Phaser.Scene {
     }
 
     // Show floating score text
-    this.effectsManager.createScorePopup(
+    this.effectsManager?.createScorePopup(
       this.cameras.main.centerX,
       this.cameras.main.centerY,
       points
@@ -537,12 +600,14 @@ export default class MuroTaisen extends Phaser.Scene {
 
     // Show combo effect for 2+ combos
     if (this.comboCount > 1) {
-      this.effectsManager.createComboEffect(
+      this.effectsManager?.createComboEffect(
         this.cameras.main.centerX,
         this.cameras.main.height / 4,
         this.comboCount
       );
     }
+
+    return points;
   }
 
   animateAndRemoveBlocks(blocks: Block[], onComplete: () => void) {
@@ -570,18 +635,19 @@ export default class MuroTaisen extends Phaser.Scene {
       block.flash();
 
       // Calculate block position
-      const pixelX = block.gridX * CELL_SIZE + CELL_SIZE / 2;
+      const pixelX =
+        ((this.gridOffsetX + block.gridX) * CELL_SIZE + CELL_SIZE) / 2;
       const pixelY = block.gridY * CELL_SIZE + CELL_SIZE / 2;
 
       // Create a small localized effect
       if (block.blockType === BlockType.CRASH_GEM) {
-        this.effectsManager.createCrashGemEffect(
+        this.effectsManager?.createCrashGemEffect(
           pixelX,
           pixelY,
           block.gemColor
         );
       } else {
-        this.effectsManager.createMatchClearEffect(
+        this.effectsManager?.createMatchClearEffect(
           pixelX,
           pixelY,
           block.gemColor
@@ -664,187 +730,6 @@ export default class MuroTaisen extends Phaser.Scene {
     }
   }
 
-  isWithinGridBounds(x: number, y: number) {
-    return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
-  }
-
-  /**
-   * Finds all connected blocks of the same color starting from a specific block,
-   * typically initiated by a Crash Gem. Uses Breadth-First Search (BFS).
-   *
-   * @param startBlock The block to start the search from (usually a Crash Gem).
-   * @param targetColor The color to match.
-   * @param visited A Set to keep track of visited blocks during a single clearing phase,
-   * passed between calls if multiple Crash Gems trigger clears simultaneously.
-   * @returns A Set of all connected blocks (including startBlock) matching targetColor.
-   */
-  private findConnectedBlocks(
-    startBlock: Block,
-    targetColor: GemColor,
-    visited: Set<Block> // Keep track across searches within the same "clear cycle"
-  ): Set<Block> {
-    const blocksFound = new Set<Block>();
-    const queue: Block[] = [];
-    let firstCycle = true;
-
-    // Don't start search if the start block itself was already visited
-    // (e.g., part of a group found by another simultaneous crash gem)
-    if (visited.has(startBlock)) {
-      return blocksFound; // Empty set, already processed
-    }
-
-    // Start the search
-    queue.push(startBlock);
-    visited.add(startBlock);
-
-    // Explore neighbors (Up, Down, Left, Right)
-    const neighborsCoords = [
-      { dx: 0, dy: -1 }, // Up
-      { dx: 0, dy: 1 }, // Down
-      { dx: -1, dy: 0 }, // Left
-      { dx: 1, dy: 0 }, // Right
-    ];
-
-    while (queue.length > 0) {
-      const currentBlock = queue.shift()!; // Get the next block to process
-
-      if (!firstCycle) blocksFound.add(currentBlock); // Add it to the result set
-
-      for (const { dx, dy } of neighborsCoords) {
-        const nextX = currentBlock.gridX + dx;
-        const nextY = currentBlock.gridY + dy;
-
-        // Check if neighbor is within grid bounds
-        if (this.isWithinGridBounds(nextX, nextY)) {
-          const neighborBlock = this.grid[nextY][nextX];
-          console.log({
-            dx,
-            dy,
-            neighborBlock,
-            color: neighborBlock ? GemColor[neighborBlock?.gemColor] : null,
-          });
-
-          // Check if neighbor exists, matches color, is a Gem/CrashGem, hasn't been visited yet
-          if (
-            neighborBlock &&
-            !visited.has(neighborBlock) &&
-            neighborBlock.gemColor === targetColor
-          ) {
-            visited.add(neighborBlock); // Mark as visited for this entire clear cycle
-            queue.push(neighborBlock); // Add to queue for processing
-          }
-        }
-      }
-
-      if (
-        firstCycle &&
-        currentBlock.blockType === BlockType.GEM &&
-        queue.every((b) => b.blockType === BlockType.GEM)
-      ) {
-        queue.length = 0;
-      }
-
-      if (firstCycle && queue.length) {
-        blocksFound.add(currentBlock);
-      }
-
-      firstCycle = false;
-      // If currentBlock is not the target color or type, we simply don't add it or search its neighbors
-      // for this specific color group, but it remains marked as 'visited' for this cycle
-      // if it was added to the queue by a valid neighbor previously.
-    }
-
-    return blocksFound;
-  }
-
-  /**
-   * Checks for and processes block clears triggered by newly landed blocks.
-   * @param landedBlocks The specific blocks that just finished falling/locking.
-   */
-  private processClears(landedBlocks: Block[]) {
-    console.log(
-      "Checking clears for landed blocks:",
-      landedBlocks.map(
-        (b) =>
-          `${BlockType[b.blockType]}(${GemColor[b.gemColor]})@(${b.gridX},${
-            b.gridY
-          })`
-      )
-    );
-
-    const allBlocksToClear = new Set<Block>();
-    const visitedDuringCycle = new Set<Block>(); // Tracks all visited blocks in this clear cycle
-
-    // 2. For each triggering Crash Gem, find its connected group
-    for (const originBlock of landedBlocks) {
-      // Skip if this gem was already cleared by another simultaneous gem's search
-      if (allBlocksToClear.has(originBlock)) continue;
-
-      const targetColor = originBlock.gemColor;
-      console.log(
-        `Searching from Crash Gem @(${originBlock.gridX},${originBlock.gridY}) for color ${GemColor[targetColor]}`
-      );
-
-      // Perform the search. Pass the visited set so searches don't overlap wastefully.
-      const group = this.findConnectedBlocks(
-        originBlock,
-        targetColor,
-        visitedDuringCycle
-      );
-
-      // Add the found group to the main set of blocks to clear
-      group.forEach((block) => allBlocksToClear.add(block));
-    }
-
-    // 3. Check if any blocks were actually marked for clearing
-    if (allBlocksToClear.size === 0) {
-      console.log("Crash gems landed but found no matching blocks to clear.");
-      // Crash gem landed but didn't connect to anything of its color.
-      return; // Nothing to clear
-    }
-
-    console.log(`Found ${allBlocksToClear.size} blocks to clear.`);
-
-    // --- TODO: Add scoring logic based on size/chains here ---
-
-    // 4. Clear the blocks
-    this.clearBlocksFromGrid(allBlocksToClear);
-
-    // --- NEXT STEPS after clearing ---
-    // 5. Trigger Gravity (Needs implementation)
-    // this.applyGravity(); // This function would handle falling blocks and return if anything moved
-
-    // 6. Check for Chain Reactions (Needs implementation)
-    // After gravity, if blocks fell, call processClears() again?
-    // This needs careful state management to avoid infinite loops and ensure
-    // spawning only happens after everything settles.
-
-    // For now, assume no gravity/chains and proceed to spawn
-    console.log("Clearing finished. Proceeding to spawn.");
-  }
-
-  /**
-   * Removes blocks from the grid and destroys their sprites.
-   * @param blocksToClear The set of blocks to remove.
-   */
-  clearBlocksFromGrid(blocksToClear: Set<Block>) {
-    blocksToClear.forEach((block) => {
-      if (this.isWithinGridBounds(block.gridX, block.gridY)) {
-        // Check if the block at the grid position is indeed the one we intend to clear
-        // (Handles cases where the grid might have changed unexpectedly)
-        if (this.grid[block.gridY][block.gridX] === block) {
-          this.grid[block.gridY][block.gridX] = null; // Remove from grid data
-        } else {
-          console.warn(
-            `Block mismatch during clear at (${block.gridX}, ${block.gridY})`
-          );
-        }
-      }
-      block.explode(); // Remove sprite from scene
-    });
-    // --- TODO: Play clearing sound effect ---
-  }
-
   // --- Helper Functions ---
   updateActivePiecePositions() {
     if (!this.activePiece) return;
@@ -907,80 +792,7 @@ export default class MuroTaisen extends Phaser.Scene {
 
   // --- Game State ---
   gameOver() {
-    console.error("GAME OVER");
-    this.scene.pause();
     if (this.fallTimer) this.fallTimer.remove(false);
-
-    // Create a semi-transparent background for the game over message
-    this.add
-      .rectangle(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY,
-        this.cameras.main.width * 0.8,
-        this.cameras.main.height * 0.5,
-        0x000000,
-        0.7
-      )
-      .setOrigin(0.5);
-
-    // Display game over text with proper positioning
-    this.add
-      .text(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY - 50,
-        "GAME OVER",
-        {
-          fontSize: "32px",
-          color: "#ff0000",
-          fontStyle: "bold",
-        }
-      )
-      .setOrigin(0.5);
-
-    // Add final score display with proper positioning
-    this.add
-      .text(
-        this.cameras.main.centerX,
-        this.cameras.main.centerY,
-        `Score: ${this.score}`,
-        {
-          fontSize: "24px",
-          color: "#ffffff",
-        }
-      )
-      .setOrigin(0.5);
-
-    const highScore = localStorage.getItem("highScore");
-    const currentHighScore = highScore ? parseInt(highScore, 10) : 0;
-
-    if (this.score > currentHighScore) {
-      localStorage.setItem("highScore", String(this.score));
-      console.log(`New High Score: ${this.score}`);
-    }
-  }
-
-  // --- Debug Drawing ---
-  drawGridLines() {
-    const graphics = this.add.graphics({
-      lineStyle: { width: 1, color: 0x444444 },
-    });
-    // Vertical lines
-    for (let x = 0; x <= GRID_WIDTH; x++) {
-      graphics.lineBetween(
-        x * CELL_SIZE,
-        0,
-        x * CELL_SIZE,
-        GRID_HEIGHT * CELL_SIZE
-      );
-    }
-    // Horizontal lines
-    for (let y = 0; y <= GRID_HEIGHT; y++) {
-      graphics.lineBetween(
-        0,
-        y * CELL_SIZE,
-        GRID_WIDTH * CELL_SIZE,
-        y * CELL_SIZE
-      );
-    }
+    this.events.emit("game-over");
   }
 }

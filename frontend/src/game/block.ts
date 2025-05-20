@@ -26,6 +26,7 @@ export class Block extends Phaser.GameObjects.Sprite {
   public isFallingSeparately: boolean = false; // Flag for separated blocks
   // isPartOfActivePiece: boolean = false; // Might be useful later
   private highlight: Phaser.GameObjects.Graphics | null = null; // Add this property declaration
+  private readonly pixelXOffset = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -36,10 +37,12 @@ export class Block extends Phaser.GameObjects.Sprite {
     blockType: BlockType = BlockType.GEM
   ) {
     // Calculate pixel coordinates from grid coordinates
-    const pixelX = gridX * CELL_SIZE + CELL_SIZE / 2;
+    const pixelX =
+      gridX * CELL_SIZE + CELL_SIZE / 2 + scene.children.parent.gridOffsetX;
     const pixelY = gridY * CELL_SIZE + CELL_SIZE / 2;
 
     super(scene, pixelX, pixelY, texture);
+    this.pixelXOffset = scene.children.parent.gridOffsetX;
 
     this.gridX = gridX;
     this.gridY = gridY;
@@ -92,7 +95,7 @@ export class Block extends Phaser.GameObjects.Sprite {
 
   // Helper to update position based on grid coordinates
   updatePosition() {
-    this.x = this.gridX * CELL_SIZE + CELL_SIZE / 2;
+    this.x = this.pixelXOffset + this.gridX * CELL_SIZE + CELL_SIZE / 2;
     this.y = this.gridY * CELL_SIZE + CELL_SIZE / 2;
 
     // Update highlight if it exists
@@ -115,12 +118,11 @@ export class Block extends Phaser.GameObjects.Sprite {
   }
 
   // Clean up resources when destroyed
-  destroy(fromScene?: boolean) {
+  destroy() {
     if (this.highlight) {
       this.highlight.destroy();
       this.highlight = null;
     }
-    super.destroy(fromScene);
   }
 
   explode() {
