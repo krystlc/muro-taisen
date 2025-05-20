@@ -43,6 +43,13 @@ export default class SinglePlayerScene extends Phaser.Scene {
   }
 
   create() {
+    if (this.player1Game && this.player2Game) {
+      this.scene.remove(this.player1Game.sceneKey);
+      this.scene.remove(this.player2Game.sceneKey);
+      this.player1Game = null;
+      this.player2Game = null;
+    }
+
     this.gameWidth = this.scale.width;
     this.gameHeight = this.scale.height;
 
@@ -93,21 +100,22 @@ export default class SinglePlayerScene extends Phaser.Scene {
 
   handleGameOver() {
     console.error("GAME OVER");
-    this.clearGames();
+    this.pauseGames();
     this.scene.start("GameOverScene");
   }
 
-  clearGames() {
-    this.scene.remove(this.player1Game?.sceneKey);
-    this.scene.remove(this.player2Game?.sceneKey);
-
-    this.player1Game = null;
-    this.player2Game = null;
+  pauseGames() {
+    [this.player1Game, this.player2Game]
+      .filter((game) => !!game)
+      .forEach((game) => {
+        game.scene.pause();
+        game.cameras.main.alpha = 0.25;
+      });
   }
 
   handleWin() {
     console.log("YOU WIN!");
-    this.clearGames();
+    this.pauseGames();
 
     const highScore = localStorage.getItem("highScore");
     const currentHighScore = highScore ? parseInt(highScore, 10) : 0;
