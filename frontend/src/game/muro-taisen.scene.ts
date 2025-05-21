@@ -83,9 +83,11 @@ export default class MuroTaisen extends Phaser.Scene {
 
     // Setup score text
     this.add
-      .text(10 + this.gridOffsetX, 10, "Score: 0", {
+      .text(this.gridOffsetX, 10, "Score: 0", {
         color: "#ffffff",
         fontSize: "18px",
+        fixedWidth: GRID_WIDTH * CELL_SIZE - 10,
+        align: "right",
       })
       .setDepth(10)
       .setName("scoreText");

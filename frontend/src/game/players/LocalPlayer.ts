@@ -19,6 +19,8 @@ export default class LocalPlayer {
     this.game = game;
     this.scene = scene;
 
+    this.scene.registry.set("player1Name", config.name);
+
     this.setupInput();
   }
 

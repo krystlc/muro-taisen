@@ -3,6 +3,7 @@ import { GRID_HEIGHT, GRID_WIDTH } from "../constants";
 import MuroTaisen from "../muro-taisen.scene";
 
 interface AutoPlayerConfig {
+  name: string;
   difficulty: "easy" | "medium" | "hard";
   // Add other configuration options as needed (e.g., character type, pattern behavior)
 }
@@ -22,6 +23,8 @@ export default class AutoPlayer {
   }
 
   start() {
+    this.scene.registry.set("player2Name", this.config.name);
+
     if (!this.moveTimer) {
       this.moveTimer = this.scene.time.addEvent({
         delay: this.moveInterval,

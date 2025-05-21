@@ -4,6 +4,7 @@ import MuroTaisen from "../muro-taisen.scene";
 import { GRID_WIDTH, CELL_SIZE, GRID_HEIGHT } from "../constants";
 import AutoPlayer from "../players/AutoPlayer";
 import LocalPlayer from "../players/LocalPlayer";
+import MiddleAreaScene from "./MiddleAreaScene";
 
 export default class SinglePlayerScene extends Phaser.Scene {
   private player1Game: MuroTaisen | null = null;
@@ -93,9 +94,12 @@ export default class SinglePlayerScene extends Phaser.Scene {
       name: "Enzo",
     });
     this.autoPlayer = new AutoPlayer(this, this.player2Game, {
+      name: "HAL-2000",
       difficulty: "easy",
     });
     this.autoPlayer.start();
+
+    this.scene.add("MiddleAreaScene", MiddleAreaScene, true); // Add and start the middle area scene
   }
 
   handleGameOver() {
@@ -109,7 +113,6 @@ export default class SinglePlayerScene extends Phaser.Scene {
       .filter((game) => !!game)
       .forEach((game) => {
         game.scene.pause();
-        game.cameras.main.alpha = 0.25;
       });
   }
 
