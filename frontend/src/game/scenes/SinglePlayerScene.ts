@@ -47,6 +47,7 @@ export default class SinglePlayerScene extends Phaser.Scene {
     if (this.player1Game && this.player2Game) {
       this.scene.remove(this.player1Game.sceneKey);
       this.scene.remove(this.player2Game.sceneKey);
+      this.scene.remove("MiddleAreaScene");
       this.player1Game = null;
       this.player2Game = null;
     }
