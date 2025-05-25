@@ -1,25 +1,9 @@
-import MuroTaisen from "../muro-taisen.scene";
+import MuroTaisen from "../scenes/MuroTaisenScene";
+import BasePlayer from "./BasePlayer";
 
-type LocalPlayerConfig = {
-  name: string;
-};
-export default class LocalPlayer {
-  private readonly game: MuroTaisen;
-  // @ts-ignore
-  private readonly scene: Phaser.Scene;
-  // @ts-ignore
-  private readonly config: LocalPlayerConfig;
-
-  constructor(
-    scene: Phaser.Scene,
-    game: MuroTaisen,
-    config: LocalPlayerConfig
-  ) {
-    this.config = config;
-    this.game = game;
-    this.scene = scene;
-
-    this.scene.registry.set("player1Name", config.name);
+export default class LocalPlayer extends BasePlayer {
+  constructor(scene: Phaser.Scene, game: MuroTaisen) {
+    super(scene, game, { name: "Enzo", sceneKey: "player1" });
 
     this.setupInput();
   }

@@ -1,6 +1,6 @@
 // src/scenes/StartScene.ts
 import Phaser from "phaser";
-import MuroTaisen from "../muro-taisen.scene";
+import MuroTaisen from "./MuroTaisenScene";
 import { GRID_WIDTH, CELL_SIZE, GRID_HEIGHT } from "../constants";
 import AutoPlayer from "../players/AutoPlayer";
 import LocalPlayer from "../players/LocalPlayer";
@@ -91,9 +91,7 @@ export default class SinglePlayerScene extends Phaser.Scene {
     this.player1Game.events.on("game-over", this.handleGameOver.bind(this));
     this.player2Game.events.on("game-over", this.handleWin.bind(this));
 
-    this.localPlayer = new LocalPlayer(this, this.player1Game, {
-      name: "Enzo",
-    });
+    this.localPlayer = new LocalPlayer(this, this.player1Game);
     this.autoPlayer = new AutoPlayer(this, this.player2Game, {
       name: "HAL-2000",
       difficulty: "easy",
@@ -130,7 +128,7 @@ export default class SinglePlayerScene extends Phaser.Scene {
       console.log(`New High Score: ${score}`);
     }
 
-    this.scene.start("StartScene");
+    this.scene.start("MainMenuScene");
   }
 
   update() {

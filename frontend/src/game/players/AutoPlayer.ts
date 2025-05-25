@@ -1,6 +1,7 @@
 // src/ai/AutoPlayer.ts
 import { GRID_HEIGHT, GRID_WIDTH } from "../constants";
-import MuroTaisen from "../muro-taisen.scene";
+import MuroTaisen from "../scenes/MuroTaisenScene";
+import BasePlayer from "./BasePlayer";
 
 interface AutoPlayerConfig {
   name: string;
@@ -8,23 +9,21 @@ interface AutoPlayerConfig {
   // Add other configuration options as needed (e.g., character type, pattern behavior)
 }
 
-export default class AutoPlayer {
-  private game: MuroTaisen;
-  private config: AutoPlayerConfig;
+export default class AutoPlayer extends BasePlayer {
   private moveTimer: Phaser.Time.TimerEvent | null = null;
   private moveInterval: number;
-  private scene: Phaser.Scene; // Store the scene reference
+  private readonly autoPlayerconfig: AutoPlayerConfig;
 
   constructor(scene: Phaser.Scene, game: MuroTaisen, config: AutoPlayerConfig) {
-    this.game = game;
-    this.config = config;
+    super(scene, game, {
+      name: config.name,
+      sceneKey: "autoPlayer",
+    });
+    this.autoPlayerconfig = config;
     this.moveInterval = this.getMoveInterval();
-    this.scene = scene; // Get the scene from the MuroTaisen instance
   }
 
   start() {
-    this.scene.registry.set("player2Name", this.config.name);
-
     if (!this.moveTimer) {
       this.moveTimer = this.scene.time.addEvent({
         delay: this.moveInterval,
@@ -43,7 +42,7 @@ export default class AutoPlayer {
   }
 
   private getMoveInterval(): number {
-    switch (this.config.difficulty) {
+    switch (this.autoPlayerconfig.difficulty) {
       case "easy":
         return 1000; // Move every 1 second
       case "medium":

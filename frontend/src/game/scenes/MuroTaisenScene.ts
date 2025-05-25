@@ -1,9 +1,9 @@
 // src/game/index.ts
 import Phaser from "phaser";
-import { GRID_WIDTH, GRID_HEIGHT, CELL_SIZE, FALL_SPEED } from "./constants";
-import { Block, GemColor, BlockType } from "./block";
-import { MatchingSystem } from "./matching";
-import { EffectsManager } from "./effects";
+import { GRID_WIDTH, GRID_HEIGHT, CELL_SIZE, FALL_SPEED } from "../constants";
+import { Block, GemColor, BlockType } from "../block";
+import { MatchingSystem } from "../matching";
+import { EffectsManager } from "../effects";
 
 interface MuroTaisenConfig {
   gridX: number;
@@ -112,7 +112,7 @@ export default class MuroTaisen extends Phaser.Scene {
 
   drawGridLines() {
     const graphics = this.add.graphics({
-      lineStyle: { width: 1, color: 0x444444 },
+      lineStyle: { width: 1, color: 0x5273d4 },
     });
     // Vertical lines
     for (let x = 0; x <= GRID_WIDTH; x++) {
