@@ -1,9 +1,9 @@
 import { For } from "solid-js";
 
 type Props = {
-  players: string[];
-  selectedOpponent: string;
-  onSelectOpponent: (name: string) => void;
+  players: { id: string; username: string }[];
+  selectedOpponentId: string;
+  onSelectOpponentId: (name: string) => void;
 };
 
 const OnlinePlayersList = (props: Props) => {
@@ -16,11 +16,12 @@ const OnlinePlayersList = (props: Props) => {
               type="button"
               classList={{
                 "cursor-pointer": true,
-                "underline text-yellow-500": props.selectedOpponent === item,
+                "underline text-yellow-500":
+                  props.selectedOpponentId === item.id,
               }}
-              on:click={() => props.onSelectOpponent(item)}
+              on:click={() => props.onSelectOpponentId(item.id)}
             >
-              {item}
+              {item.username}
             </button>
           </li>
         )}

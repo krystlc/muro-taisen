@@ -14,13 +14,6 @@ export default class MultiPlayerScene extends Phaser.Scene {
   }
 
   create() {
-    const myUsername = prompt("Please enter your name") || "Anonymous";
-    const url = new URL(`/ws?username=${myUsername}`, "ws://localhost:8080");
-    console.log(url, url.toString());
-    this.wsClient = WebSocketClient.getInstance(url);
-
-    this.wsClient.connect();
-
     // Listen for general WebSocket messages
     this.wsClient.events.on("websocket/message", (data: any) => {
       console.log("GameScene: Raw WebSocket message:", data);

@@ -1,16 +1,12 @@
 /* frontend/src/style.css */
 @import "tailwindcss";
 
-/* make container fill the viewport */
-html,
-body,
-#app,
-#game-container {
-  width: 100%;
-  height: 100%;
+.btn {
+  @apply w-full block text-center border-2 border-blue-700 bg-gradient-to-b from-0% to-blue-800 transition-colors text-white font-medium text-lg py-2;
+  @apply not-disabled:hover:to-black/50 not-disabled:cursor-pointer disabled:text-neutral-400 disabled:to-neutral-700 disabled:border-neutral-600;
 }
 
-.btn {
-  @apply w-full block text-center border-2 border-blue-700 bg-gradient-to-b from-0% to-blue-800 transition-colors text-white font-medium text-lg py-2 rounded-4xl;
-  @apply not-disabled:hover:to-black/50 not-disabled:cursor-pointer disabled:text-neutral-400 disabled:to-neutral-700 disabled:border-neutral-600;
+.btn-icon {
+  @apply cursor-pointer aspect-square h-10 bg-black/10 rounded-full flex items-center justify-center transition-colors;
+  @apply hover:bg-blue-800;
 }

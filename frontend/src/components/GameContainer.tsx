@@ -1,13 +1,12 @@
-import { onMount } from "solid-js";
+import { ComponentProps, onMount } from "solid-js";
 import { initGame } from "../game";
 
-export const GameContainer = () => {
+export const GameContainer = (props: ComponentProps<"main">) => {
   let container;
 
   onMount(() => {
-    const puzzleGame = initGame(container!);
-    console.log(puzzleGame);
+    initGame(container!);
   });
 
-  return <div ref={container}></div>;
+  return <main {...props} ref={container}></main>;
 };

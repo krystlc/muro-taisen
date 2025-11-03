@@ -4,7 +4,7 @@
 class WebSocketClient {
   private static instance: WebSocketClient;
   private ws: WebSocket | null = null;
-  private url: URL;
+  private url: string;
   private reconnectInterval: number = 5000; // 5 seconds
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
@@ -17,8 +17,8 @@ class WebSocketClient {
    * Use `WebSocketClient.getInstance()` instead.
    * @param url The URL of the WebSocket server.
    */
-  private constructor(url: URL, eventEmitter?: Phaser.Events.EventEmitter) {
-    this.url = url;
+  private constructor(eventEmitter?: Phaser.Events.EventEmitter) {
+    this.url = "ws://localhost:8000/ws";
     // If no emitter provided, create a new one. In a Phaser context, you'd likely pass a shared one.
     this.events = eventEmitter || new Phaser.Events.EventEmitter();
   }
@@ -31,11 +31,10 @@ class WebSocketClient {
    * @returns The singleton instance of WebSocketClient.
    */
   public static getInstance(
-    url: URL,
     eventEmitter?: Phaser.Events.EventEmitter
   ): WebSocketClient {
     if (!WebSocketClient.instance) {
-      WebSocketClient.instance = new WebSocketClient(url, eventEmitter);
+      WebSocketClient.instance = new WebSocketClient(eventEmitter);
     }
     return WebSocketClient.instance;
   }
