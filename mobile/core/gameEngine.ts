@@ -20,9 +20,37 @@ export class GameEngine {
   public currentPiece: IFallingPiece | null;
   public isGameOver: boolean = false;
 
+  // Visuals
+  public linkedRects: {
+    r: number;
+    c: number;
+    w: number;
+    h: number;
+    color: BlockColor;
+  }[] = [];
+
+  // Scoring
+  public score: number = 0;
+  public totalBlocksCleared: number = 0;
+  public currentChain: number = 0;
+
   constructor() {
     this.grid = new GameGrid();
     this.currentPiece = null;
+  }
+
+  public resetChain(): void {
+    this.currentChain = 0;
+  }
+
+  public resetGame(): void {
+    this.grid.reset();
+    this.score = 0;
+    this.totalBlocksCleared = 0;
+    this.currentChain = 0;
+    this.isGameOver = false;
+    this.currentPiece = null;
+    this.updateLinkedBlocks(); // Ensure the grid visuals are reset
   }
 
   private checkSingleBlockCollision(
@@ -61,13 +89,19 @@ export class GameEngine {
 
     const piece = createFallingPiece(colorA, colorB);
 
-    if (Math.random() < 0.3) {
-      // 30% chance for an orb
+    // Each block has an independent, smaller chance of being an orb.
+
+    if (Math.random() < 0.15) {
+      piece.blockA.type = BlockType.ORB;
+    } else {
+      piece.blockA.type = BlockType.NORMAL;
+    }
+
+    if (Math.random() < 0.15) {
       piece.blockB.type = BlockType.ORB;
     } else {
       piece.blockB.type = BlockType.NORMAL;
     }
-    piece.blockA.type = BlockType.NORMAL;
 
     this.currentPiece = piece;
 
@@ -115,17 +149,23 @@ export class GameEngine {
   }
 
   public executeChainReaction(): number {
-    let totalBlocksRemoved = 0;
-    let chainCount = 0;
-    let didSomethingHappen = true;
+    let totalBlocksRemovedInReaction = 0;
 
+    let didSomethingHappen = true;
     while (didSomethingHappen) {
       didSomethingHappen = false;
       const blocksRemovedThisPass = this.checkAndExplodeOrbs();
 
       if (blocksRemovedThisPass > 0) {
-        totalBlocksRemoved += blocksRemovedThisPass;
-        chainCount++;
+        this.currentChain++; // Increment the ongoing chain
+        totalBlocksRemovedInReaction += blocksRemovedThisPass;
+
+        // --- Scoring ---
+        // The multiplier is 2^(chain-1). So 1x, 2x, 4x, 8x...
+        const chainMultiplier = Math.pow(2, this.currentChain - 1);
+        const points = blocksRemovedThisPass * 10 * chainMultiplier;
+        this.score += points;
+
         didSomethingHappen = true;
       }
 
@@ -136,13 +176,13 @@ export class GameEngine {
       }
     }
 
-    if (chainCount > 0) {
+    if (totalBlocksRemovedInReaction > 0) {
+      this.totalBlocksCleared += totalBlocksRemovedInReaction;
       console.log(
-        `Chain Reaction Complete! Total chains: ${chainCount}, Total blocks removed: ${totalBlocksRemoved}`,
+        `Chain: ${this.currentChain} | Blocks: ${totalBlocksRemovedInReaction} | Score: ${this.score}`,
       );
     }
-
-    return totalBlocksRemoved;
+    return totalBlocksRemovedInReaction;
   }
 
   private checkAndExplodeOrbs(): number {
@@ -159,7 +199,11 @@ export class GameEngine {
             col,
             targetColor,
           );
-          connectedBlocks.forEach((coord) => blocksToClear.add(coord));
+
+          // Only trigger an explosion if the orb is connected to at least one other block of the same color.
+          if (connectedBlocks.size > 1) {
+            connectedBlocks.forEach((coord) => blocksToClear.add(coord));
+          }
         }
       }
     }
@@ -187,37 +231,59 @@ export class GameEngine {
       return false;
     }
 
+    // 1. Calculate the potential next relative position for Block B
     const dRow = rowB - rowA;
     const dCol = colB - colA;
-
     let currentPosIndex = RELATIVE_POSITIONS.findIndex(
       ([r, c]) => r === dRow && c === dCol,
     );
     if (currentPosIndex === -1) {
       currentPosIndex = 0;
     }
-
     const nextPosIndex = (currentPosIndex + 1) % 4;
     const [nextDRow, nextDCol] = RELATIVE_POSITIONS[nextPosIndex];
 
-    const newRowB = rowA + nextDRow;
-    const newColB = colA + nextDCol;
+    // 2. Test for wall kicks. Test order: No kick, kick left, kick right.
+    const testOffsets = [
+      { r: 0, c: 0 }, // Test 0: Standard rotation
+      { r: 0, c: -1 }, // Test 1: Kick left
+      { r: 0, c: 1 }, // Test 2: Kick right
+    ];
 
-    const collision = this.checkSingleBlockCollision(
-      newRowB,
-      newColB,
-      this.currentPiece.blockB,
-      rowA,
-      colA,
-    );
+    for (const offset of testOffsets) {
+      const newColA = colA + offset.c;
+      const newRowA = rowA + offset.r;
+      const newColB = newColA + nextDCol;
+      const newRowB = newRowA + nextDRow;
 
-    if (collision) {
-      return false;
+      // Check if BOTH new positions are valid
+      const collisionA = this.checkSingleBlockCollision(
+        newRowA,
+        newColA,
+        this.currentPiece.blockA,
+        newRowB, // Ignore B's new position
+        newColB,
+      );
+      const collisionB = this.checkSingleBlockCollision(
+        newRowB,
+        newColB,
+        this.currentPiece.blockB,
+        newRowA, // Ignore A's new position
+        newColA,
+      );
+
+      if (!collisionA && !collisionB) {
+        // Valid rotation found! Apply it.
+        this.currentPiece.rowA = newRowA;
+        this.currentPiece.colA = newColA;
+        this.currentPiece.rowB = newRowB;
+        this.currentPiece.colB = newColB;
+        return true; // Rotation successful
+      }
     }
 
-    this.currentPiece.rowB = newRowB;
-    this.currentPiece.colB = newColB;
-    return true;
+    // All tests failed, rotation is not possible.
+    return false;
   }
 
   public tryMove(direction: "left" | "right"): boolean {
@@ -248,6 +314,54 @@ export class GameEngine {
     this.currentPiece.colA = newColA;
     this.currentPiece.colB = newColB;
     return true;
+  }
+
+  public hardDrop(): void {
+    if (!this.currentPiece) {
+      return;
+    }
+
+    let dropDistance = 0;
+    while (true) {
+      const nextRowA = this.currentPiece.rowA + dropDistance + 1;
+      const nextRowB = this.currentPiece.rowB + dropDistance + 1;
+
+      const collisionA = this.checkSingleBlockCollision(
+        nextRowA,
+        this.currentPiece.colA,
+        this.currentPiece.blockA,
+      );
+      const collisionB = this.checkSingleBlockCollision(
+        nextRowB,
+        this.currentPiece.colB,
+        this.currentPiece.blockB,
+      );
+
+      if (!collisionA && !collisionB) {
+        dropDistance++;
+      } else {
+        break;
+      }
+    }
+
+    if (dropDistance > 0) {
+      this.currentPiece.rowA += dropDistance;
+      this.currentPiece.rowB += dropDistance;
+    }
+
+    this.lockBlock(
+      this.currentPiece.rowA,
+      this.currentPiece.colA,
+      this.currentPiece.blockA,
+    );
+    this.lockBlock(
+      this.currentPiece.rowB,
+      this.currentPiece.colB,
+      this.currentPiece.blockB,
+    );
+    this.currentPiece = null;
+    this.executeChainReaction();
+    this.updateLinkedBlocks();
   }
 
   public get isPieceLocked(): boolean {
@@ -293,6 +407,7 @@ export class GameEngine {
       this.lockBlock(piece.rowB, piece.colB, piece.blockB);
       this.currentPiece = null;
       this.executeChainReaction();
+      this.updateLinkedBlocks();
     }
   }
 
@@ -310,6 +425,7 @@ export class GameEngine {
     }
     this.lockBlock(finalRow, startCol, block);
     this.executeChainReaction();
+    this.updateLinkedBlocks();
   }
 
   private lockBlock(row: number, col: number, block: IBlock): void {
@@ -317,7 +433,78 @@ export class GameEngine {
     const finalBlock: IBlock = {
       ...block,
       isLocked: true,
+      isLinked: false, // Default to not linked
     };
     this.grid.setBlock(row, col, finalBlock);
+  }
+
+  private updateLinkedBlocks(): void {
+    // 1. Reset state
+    this.linkedRects = [];
+    for (let r = 0; r < GRID_HEIGHT; r++) {
+      for (let c = 0; c < GRID_WIDTH; c++) {
+        const block = this.grid.getBlock(r, c);
+        if (block.type !== BlockType.EMPTY) {
+          block.isLinked = false;
+        }
+      }
+    }
+
+    const visited = new Set<string>();
+
+    // 2. Find maximal rectangles
+    for (let r = 0; r < GRID_HEIGHT; r++) {
+      for (let c = 0; c < GRID_WIDTH; c++) {
+        const key = `${r},${c}`;
+        if (visited.has(key)) continue;
+
+        const startBlock = this.grid.getBlock(r, c);
+        if (startBlock.type === BlockType.EMPTY) continue;
+
+        const color = startBlock.color;
+
+        // Find maximal width from this starting point
+        let w = 1;
+        while (
+          c + w < GRID_WIDTH &&
+          this.grid.getBlock(r, c + w).color === color &&
+          !visited.has(`${r},${c + w}`)
+        ) {
+          w++;
+        }
+
+        // Find maximal height for this width
+        let h = 1;
+        let isFullRectangle = true;
+        while (r + h < GRID_HEIGHT) {
+          for (let i = 0; i < w; i++) {
+            if (
+              this.grid.getBlock(r + h, c + i).color !== color ||
+              visited.has(`${r + h},${c + i}`)
+            ) {
+              isFullRectangle = false;
+              break;
+            }
+          }
+          if (isFullRectangle) {
+            h++;
+          } else {
+            break;
+          }
+        }
+
+        // 3. If it's a valid rectangle, store it and mark blocks
+        if (w >= 2 && h >= 2) {
+          this.linkedRects.push({ r, c, w, h, color });
+          for (let j = 0; j < h; j++) {
+            for (let i = 0; i < w; i++) {
+              const blockKey = `${r + j},${c + i}`;
+              visited.add(blockKey);
+              this.grid.getBlock(r + j, c + i).isLinked = true;
+            }
+          }
+        }
+      }
+    }
   }
 }

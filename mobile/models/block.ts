@@ -28,6 +28,7 @@ export enum BlockType {
 export interface IBlock {
   color: BlockColor;
   type: BlockType;
+  isLinked: boolean;
   isLocked: boolean; // True if placed on the grid, false if it's a falling piece
 }
 
@@ -38,6 +39,7 @@ export const createEmptyBlock = (): IBlock => ({
   color: BlockColor.EMPTY,
   type: BlockType.EMPTY,
   isLocked: true,
+  isLinked: false,
 });
 
 /**
@@ -47,6 +49,7 @@ export const createNormalBlock = (color: BlockColor): IBlock => ({
   color,
   type: BlockType.NORMAL,
   isLocked: false,
+  isLinked: false,
 });
 
 /**
@@ -56,4 +59,5 @@ export const createOrbBlock = (color: BlockColor): IBlock => ({
   color,
   type: BlockType.ORB,
   isLocked: false,
+  isLinked: false,
 });
