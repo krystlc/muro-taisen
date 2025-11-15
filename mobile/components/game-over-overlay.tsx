@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 type Props = {
   isGameOver: boolean;
+  didWin: boolean;
   handleRestart: () => void;
 };
 
@@ -27,7 +28,7 @@ export default function GameOverOverlay(props: Props) {
   return (
     <ThemedView style={styles.gameOverContainer}>
       <ThemedText type="title" style={styles.gameOverText}>
-        GAME OVER
+        {props.didWin ? "YOU WIN!" : "GAME OVER"}
       </ThemedText>
       <ThemedText style={styles.countdownText}>
         Restarting in {countdown}...
@@ -44,6 +45,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     gap: 20,
+    zIndex: 100,
   },
   gameOverText: {},
   countdownText: {},

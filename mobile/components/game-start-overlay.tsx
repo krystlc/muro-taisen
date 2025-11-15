@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 24,
+    zIndex: 100,
   },
   scoreContainer: {
     alignItems: "center",

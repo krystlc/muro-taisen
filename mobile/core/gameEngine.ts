@@ -18,7 +18,9 @@ const RELATIVE_POSITIONS = [
 export class GameEngine {
   private grid: GameGrid;
   public currentPiece: IFallingPiece | null;
+  public nextPiece: IFallingPiece | null;
   public isGameOver: boolean = false;
+  public didWin: boolean = false;
 
   // Visuals
   public linkedRects: {
@@ -33,14 +35,46 @@ export class GameEngine {
   public score: number = 0;
   public totalBlocksCleared: number = 0;
   public currentChain: number = 0;
+  public level: number = 1;
+
+  private readonly GAME_OVER_LEVEL = 10;
 
   constructor() {
     this.grid = new GameGrid();
     this.currentPiece = null;
+    this.nextPiece = this.generatePiece();
   }
 
   public resetChain(): void {
     this.currentChain = 0;
+  }
+
+  private generatePiece(): IFallingPiece {
+    const availableColors = Object.values(BlockColor).filter(
+      (color) => color !== BlockColor.EMPTY,
+    );
+    const colorA =
+      availableColors[Math.floor(Math.random() * availableColors.length)];
+    const colorB =
+      availableColors[Math.floor(Math.random() * availableColors.length)];
+
+    const piece = createFallingPiece(colorA, colorB);
+
+    // The chance of a block being an orb increases with the level.
+    const orbChance = 0.3 + this.level * 0.03;
+
+    if (Math.random() < orbChance) {
+      piece.blockA.type = BlockType.ORB;
+    } else {
+      piece.blockA.type = BlockType.NORMAL;
+    }
+
+    if (Math.random() < orbChance) {
+      piece.blockB.type = BlockType.ORB;
+    } else {
+      piece.blockB.type = BlockType.NORMAL;
+    }
+    return piece;
   }
 
   public resetGame(): void {
@@ -49,7 +83,10 @@ export class GameEngine {
     this.totalBlocksCleared = 0;
     this.currentChain = 0;
     this.isGameOver = false;
+    this.didWin = false;
     this.currentPiece = null;
+    this.nextPiece = this.generatePiece();
+    this.level = 1;
     this.updateLinkedBlocks(); // Ensure the grid visuals are reset
   }
 
@@ -79,42 +116,19 @@ export class GameEngine {
   public spawnPiece(): void {
     if (this.isGameOver) return;
 
-    const availableColors = Object.values(BlockColor).filter(
-      (color) => color !== BlockColor.EMPTY,
-    );
-    const colorA =
-      availableColors[Math.floor(Math.random() * availableColors.length)];
-    const colorB =
-      availableColors[Math.floor(Math.random() * availableColors.length)];
-
-    const piece = createFallingPiece(colorA, colorB);
-
-    // Each block has an independent, smaller chance of being an orb.
-
-    if (Math.random() < 0.15) {
-      piece.blockA.type = BlockType.ORB;
-    } else {
-      piece.blockA.type = BlockType.NORMAL;
-    }
-
-    if (Math.random() < 0.15) {
-      piece.blockB.type = BlockType.ORB;
-    } else {
-      piece.blockB.type = BlockType.NORMAL;
-    }
-
-    this.currentPiece = piece;
+    this.currentPiece = this.nextPiece;
+    this.nextPiece = this.generatePiece();
 
     if (
       this.checkSingleBlockCollision(
-        this.currentPiece.rowA,
-        this.currentPiece.colA,
-        this.currentPiece.blockA,
+        this.currentPiece!.rowA,
+        this.currentPiece!.colA,
+        this.currentPiece!.blockA,
       ) ||
       this.checkSingleBlockCollision(
-        this.currentPiece.rowB,
-        this.currentPiece.colB,
-        this.currentPiece.blockB,
+        this.currentPiece!.rowB,
+        this.currentPiece!.colB,
+        this.currentPiece!.blockB,
       )
     ) {
       console.log("GAME OVER!");
@@ -178,11 +192,26 @@ export class GameEngine {
 
     if (totalBlocksRemovedInReaction > 0) {
       this.totalBlocksCleared += totalBlocksRemovedInReaction;
+      this.updateLevel();
       console.log(
         `Chain: ${this.currentChain} | Blocks: ${totalBlocksRemovedInReaction} | Score: ${this.score}`,
       );
     }
     return totalBlocksRemovedInReaction;
+  }
+
+  private updateLevel(): void {
+    const blocksPerLevel = 10;
+    const nextLevel = Math.floor(this.totalBlocksCleared / blocksPerLevel) + 1;
+
+    if (nextLevel > this.level) {
+      this.level = nextLevel;
+    }
+
+    if (this.level >= this.GAME_OVER_LEVEL) {
+      this.isGameOver = true;
+      this.didWin = true;
+    }
   }
 
   private checkAndExplodeOrbs(): number {

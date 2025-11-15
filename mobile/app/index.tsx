@@ -23,6 +23,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import GameOverOverlay from "@/components/game-over-overlay";
 import GameStartOverlay from "@/components/game-start-overlay";
+import NextPiecePreview from "@/components/next-piece-preview";
 
 // --- RENDERING CONSTANTS ---
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -48,10 +49,13 @@ const engine = new GameEngine();
 interface IGameState {
   grid: IBlock[][];
   currentPiece: IFallingPiece | null;
+  nextPiece: IFallingPiece | null;
   score: number;
   totalBlocksCleared: number;
   currentChain: number;
   isGameOver: boolean;
+  didWin: boolean;
+  level: number;
   linkedRects: {
     r: number;
     c: number;
@@ -65,10 +69,13 @@ export default function Index() {
   const [gameState, setGameState] = useState<IGameState>({
     grid: engine.gameState,
     currentPiece: engine.currentPiece,
+    nextPiece: engine.nextPiece,
     score: engine.score,
     totalBlocksCleared: engine.totalBlocksCleared,
     currentChain: engine.currentChain,
     isGameOver: engine.isGameOver,
+    didWin: engine.didWin,
+    level: engine.level,
     linkedRects: engine.linkedRects,
   });
   const [gameStarted, setGameStarted] = useState(false);
@@ -129,7 +136,8 @@ export default function Index() {
         }
 
         // --- Apply Gravity (throttled) ---
-        if (now - lastGravityTick > 500) {
+        const gravityDelay = Math.max(100, 500 - (gameState.level - 1) * 50);
+        if (now - lastGravityTick > gravityDelay) {
           lastGravityTick = now;
           if (engine.isPieceLocked) {
             engine.resetChain();
@@ -152,10 +160,13 @@ export default function Index() {
         setGameState({
           grid: engine.gameState,
           currentPiece: engine.currentPiece,
+          nextPiece: engine.nextPiece,
           score: engine.score,
           totalBlocksCleared: engine.totalBlocksCleared,
           currentChain: engine.currentChain,
           isGameOver: engine.isGameOver,
+          didWin: engine.didWin,
+          level: engine.level,
           linkedRects: engine.linkedRects,
         });
 
@@ -207,10 +218,13 @@ export default function Index() {
     setGameState({
       grid: engine.gameState,
       currentPiece: engine.currentPiece,
+      nextPiece: engine.nextPiece,
       score: engine.score,
       totalBlocksCleared: engine.totalBlocksCleared,
       currentChain: engine.currentChain,
       isGameOver: engine.isGameOver,
+      didWin: engine.didWin,
+      level: engine.level,
       linkedRects: engine.linkedRects,
     });
     setGameStarted(false);
@@ -219,8 +233,15 @@ export default function Index() {
   const handleStartGame = () => {
     engine.resetGame();
     setGameState({
-      ...engine,
       grid: engine.gameState,
+      currentPiece: engine.currentPiece,
+      nextPiece: engine.nextPiece,
+      score: engine.score,
+      totalBlocksCleared: engine.totalBlocksCleared,
+      currentChain: engine.currentChain,
+      isGameOver: engine.isGameOver,
+      didWin: engine.didWin,
+      level: engine.level,
       linkedRects: engine.linkedRects,
     });
     setGameStarted(true);
@@ -301,6 +322,7 @@ export default function Index() {
   return (
     <ThemedView style={styles.wrapper}>
       <ThemedView style={styles.header}>
+        <NextPiecePreview nextPiece={gameState.nextPiece} />
         <Image
           source={require("@/assets/images/partial-react-logo.png")}
           style={styles.reactLogo}
@@ -308,6 +330,7 @@ export default function Index() {
         <View style={styles.statsContainer}>
           <ThemedText>Score: {gameState.score}</ThemedText>
           <ThemedText>Blocks: {gameState.totalBlocksCleared}</ThemedText>
+          <ThemedText>Level: {gameState.level}</ThemedText>
         </View>
       </ThemedView>
       <ThemedView style={styles.gameContainer}>
@@ -376,6 +399,7 @@ export default function Index() {
       />
       <GameOverOverlay
         isGameOver={gameState.isGameOver}
+        didWin={engine.didWin}
         handleRestart={handleRestart}
       />
     </ThemedView>
@@ -389,13 +413,12 @@ const styles = StyleSheet.create({
 
   header: {
     height: HEADER_HEIGHT,
-    justifyContent: "flex-end",
   },
   statsContainer: {
-    flexDirection: "row",
-    gap: PADDING,
-    padding: PADDING,
-    alignSelf: "flex-end",
+    position: "absolute",
+    right: PADDING,
+    bottom: PADDING,
+    alignItems: "flex-end",
     backgroundColor: "none",
   },
   reactLogo: {
