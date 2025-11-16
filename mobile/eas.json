@@ -1,5 +1,6 @@
 {
   "cli": {
+    "appVersionSource": "remote",
     "version": ">= 7.4.0"
   },
   "build": {
@@ -10,9 +11,19 @@
     "preview": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "channel": "production",
+      "distribution": "store",
+      "autoIncrement": true
+    }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft",
+        "changesNotSentForReview": true
+      }
+    }
   }
 }

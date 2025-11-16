@@ -16,6 +16,7 @@ const RELATIVE_POSITIONS = [
  * The GameEngine manages the grid, falling pieces, and core physics logic.
  */
 export class GameEngine {
+  private readonly clearBonus = 100;
   private grid: GameGrid;
   public currentPiece: IFallingPiece | null;
   public nextPiece: IFallingPiece | null;
@@ -88,6 +89,17 @@ export class GameEngine {
     this.nextPiece = this.generatePiece();
     this.level = 1;
     this.updateLinkedBlocks(); // Ensure the grid visuals are reset
+  }
+
+  private isGridEmpty(): boolean {
+    for (let r = 0; r < GRID_HEIGHT; r++) {
+      for (let c = 0; c < GRID_WIDTH; c++) {
+        if (this.grid.getBlock(r, c).type !== BlockType.EMPTY) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   private checkSingleBlockCollision(
@@ -191,6 +203,12 @@ export class GameEngine {
     }
 
     if (totalBlocksRemovedInReaction > 0) {
+      // If we cleared any blocks, check for a full clear bonus!
+      if (this.isGridEmpty()) {
+        this.score += this.clearBonus;
+        console.log(`Full Clear Bonus: +${this.clearBonus}!`);
+      }
+
       this.totalBlocksCleared += totalBlocksRemovedInReaction;
       this.updateLevel();
       console.log(
@@ -206,6 +224,8 @@ export class GameEngine {
 
     if (nextLevel > this.level) {
       this.level = nextLevel;
+      this.grid.reset(); // Clear the board on level up!
+      console.log(`Level up! Board cleared.`);
     }
 
     if (this.level >= this.GAME_OVER_LEVEL) {

@@ -56,6 +56,12 @@
         "projectId": "d8914925-e91a-4acd-ab54-cfa7aa8a4e34"
       }
     },
-    "owner": "expovalle"
+    "owner": "expovalle",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d8914925-e91a-4acd-ab54-cfa7aa8a4e34"
+    }
   }
 }

@@ -295,6 +295,10 @@ export default function Index() {
       );
     }
 
+    const highlightColor = "rgba(255, 255, 255, 0.2)";
+    const shadowColor = "rgba(0, 0, 0, 0.2)";
+    const borderWidth = 2;
+
     return (
       <Group key={`${row}-${col}`}>
         <RoundedRect
@@ -305,15 +309,37 @@ export default function Index() {
           r={4}
           color={block.color}
         />
-        <RoundedRect
-          x={x + 1}
-          y={y + 1}
-          width={TILE_SIZE - 2}
-          height={TILE_SIZE - 2}
-          r={3}
-          color={block.color}
-          style="stroke"
-          strokeWidth={1}
+        {/* Top highlight */}
+        <Rect
+          x={x}
+          y={y}
+          width={TILE_SIZE}
+          height={borderWidth}
+          color={highlightColor}
+        />
+        {/* Left shadow */}
+        <Rect
+          x={x}
+          y={y + borderWidth}
+          width={borderWidth}
+          height={TILE_SIZE - borderWidth}
+          color={shadowColor}
+        />
+        {/* Right shadow */}
+        <Rect
+          x={x + TILE_SIZE - borderWidth}
+          y={y + borderWidth}
+          width={borderWidth}
+          height={TILE_SIZE - borderWidth}
+          color={shadowColor}
+        />
+        {/* Bottom shadow */}
+        <Rect
+          x={x + borderWidth}
+          y={y + TILE_SIZE - borderWidth}
+          width={TILE_SIZE - borderWidth * 2}
+          height={borderWidth}
+          color={shadowColor}
         />
       </Group>
     );
@@ -324,8 +350,8 @@ export default function Index() {
       <ThemedView style={styles.header}>
         <NextPiecePreview nextPiece={gameState.nextPiece} />
         <Image
-          source={require("@/assets/images/partial-react-logo.png")}
-          style={styles.reactLogo}
+          source={require("@/assets/characters/badhombre/neutral.png")}
+          style={styles.character}
         />
         <View style={styles.statsContainer}>
           <ThemedText>Score: {gameState.score}</ThemedText>
@@ -421,11 +447,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     backgroundColor: "none",
   },
-  reactLogo: {
+  character: {
     height: HEADER_HEIGHT,
-    width: 290,
-    bottom: 0,
     left: 0,
+    right: 0,
     position: "absolute",
   },
 
@@ -437,5 +462,8 @@ const styles = StyleSheet.create({
     height: BOARD_HEIGHT + PADDING * 2,
     width: BOARD_WIDTH + PADDING * 2,
     alignSelf: "center",
+    borderColor: "#333",
+    borderWidth: 1,
+    borderRadius: 8,
   },
 });
