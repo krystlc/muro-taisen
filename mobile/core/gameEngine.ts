@@ -23,6 +23,7 @@ export class GameEngine {
   public isGameOver: boolean = false;
   public didWin: boolean = false;
   public justLeveledUp: boolean = false;
+  public explodingBlocks: { block: IBlock; row: number; col: number }[] = [];
 
   // Visuals
   public linkedRects: {
@@ -182,20 +183,21 @@ export class GameEngine {
 
   public executeChainReaction(): number {
     let totalBlocksRemovedInReaction = 0;
+    this.explodingBlocks = []; // Reset for the new chain reaction
 
     let didSomethingHappen = true;
     while (didSomethingHappen) {
       didSomethingHappen = false;
-      const blocksRemovedThisPass = this.checkAndExplodeOrbs();
+      const removedBlocks = this.checkAndExplodeOrbs();
 
-      if (blocksRemovedThisPass > 0) {
+      if (removedBlocks.length > 0) {
+        this.explodingBlocks.push(...removedBlocks);
         this.currentChain++; // Increment the ongoing chain
-        totalBlocksRemovedInReaction += blocksRemovedThisPass;
+        totalBlocksRemovedInReaction += removedBlocks.length;
 
         // --- Scoring ---
-        // The multiplier is 2^(chain-1). So 1x, 2x, 4x, 8x...
         const chainMultiplier = Math.pow(2, this.currentChain - 1);
-        const points = blocksRemovedThisPass * 10 * chainMultiplier;
+        const points = removedBlocks.length * 10 * chainMultiplier;
         this.score += points;
 
         didSomethingHappen = true;
@@ -259,7 +261,7 @@ export class GameEngine {
     }
   }
 
-  private checkAndExplodeOrbs(): number {
+  private checkAndExplodeOrbs(): { block: IBlock; row: number; col: number }[] {
     const blocksToClear = new Set<string>();
     for (let row = 0; row < GRID_HEIGHT; row++) {
       for (let col = 0; col < GRID_WIDTH; col++) {
@@ -282,12 +284,17 @@ export class GameEngine {
       }
     }
 
+    const explodingBlocks: { block: IBlock; row: number; col: number }[] = [];
     blocksToClear.forEach((coord) => {
       const [row, col] = coord.split(",").map(Number);
+      const block = this.grid.getBlock(row, col);
+      if (block.type !== BlockType.EMPTY) {
+        explodingBlocks.push({ block: { ...block }, row, col });
+      }
       this.grid.clearCell(row, col);
     });
 
-    return blocksToClear.size;
+    return explodingBlocks;
   }
 
   public tryRotate(): boolean {

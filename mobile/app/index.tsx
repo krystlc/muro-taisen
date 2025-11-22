@@ -25,6 +25,7 @@ import GameOverOverlay from "@/components/game-over-overlay";
 import GameStartOverlay from "@/components/game-start-overlay";
 import NextPiecePreview from "@/components/next-piece-preview";
 import LevelUpOverlay from "@/components/level-up-overlay";
+import { ExplodingBlock } from "@/components/exploding-block";
 
 // --- RENDERING CONSTANTS ---
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -65,7 +66,15 @@ interface IGameState {
     color: BlockColor;
   }[];
   justLeveledUp: boolean;
+  explodingBlocks: { block: IBlock; row: number; col: number }[];
 }
+
+type AnimatingBlock = {
+  id: string;
+  block: IBlock;
+  row: number;
+  col: number;
+};
 
 export default function Index() {
   const [gameState, setGameState] = useState<IGameState>({
@@ -80,9 +89,11 @@ export default function Index() {
     level: engine.level,
     linkedRects: engine.linkedRects,
     justLeveledUp: engine.justLeveledUp,
+    explodingBlocks: engine.explodingBlocks,
   });
   const [gameStarted, setGameStarted] = useState(false);
   const [isLevelingUp, setIsLevelingUp] = useState(false);
+  const [animatingBlocks, setAnimatingBlocks] = useState<AnimatingBlock[]>([]);
   const [countdown, setCountdown] = useState(10);
   const [_, setToasts] = useState<{ id: number; message: string }[]>([]);
   const router = useRouter();
@@ -173,6 +184,7 @@ export default function Index() {
           level: engine.level,
           linkedRects: engine.linkedRects,
           justLeveledUp: engine.justLeveledUp,
+          explodingBlocks: engine.explodingBlocks,
         });
 
         if (engine.justLeveledUp) {
@@ -204,6 +216,21 @@ export default function Index() {
       addToast,
     ]),
   );
+
+  useEffect(() => {
+    if (gameState.explodingBlocks.length > 0) {
+      const newAnimatingBlocks: AnimatingBlock[] =
+        gameState.explodingBlocks.map((b) => ({
+          ...b,
+          id: `${b.row}-${b.col}-${Math.random()}`, // Unique ID
+        }));
+      setAnimatingBlocks((current) => [...current, ...newAnimatingBlocks]);
+    }
+  }, [gameState.explodingBlocks]);
+
+  const onBlockAnimationComplete = (id: string) => {
+    setAnimatingBlocks((current) => current.filter((b) => b.id !== id));
+  };
 
   const handleLevelUpAnimationComplete = useCallback(() => {
     setIsLevelingUp(false);
@@ -243,6 +270,7 @@ export default function Index() {
       level: engine.level,
       linkedRects: engine.linkedRects,
       justLeveledUp: engine.justLeveledUp,
+      explodingBlocks: engine.explodingBlocks,
     });
     setGameStarted(false);
   };
@@ -261,6 +289,7 @@ export default function Index() {
       level: engine.level,
       linkedRects: engine.linkedRects,
       justLeveledUp: engine.justLeveledUp,
+      explodingBlocks: engine.explodingBlocks,
     });
     setGameStarted(true);
   };
@@ -434,6 +463,18 @@ export default function Index() {
                 )}
               </Fragment>
             )}
+
+            {/* Render exploding blocks */}
+            {animatingBlocks.map((b) => (
+              <ExplodingBlock
+                key={b.id}
+                block={b.block}
+                x={X_OFFSET + b.col * TILE_SIZE}
+                y={Y_OFFSET + b.row * TILE_SIZE}
+                size={TILE_SIZE}
+                onAnimationComplete={() => onBlockAnimationComplete(b.id)}
+              />
+            ))}
           </Canvas>
         </GestureDetector>
       </ThemedView>
