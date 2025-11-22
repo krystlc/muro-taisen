@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   Modal,
   StyleSheet,
@@ -9,11 +9,7 @@ import {
 } from "react-native";
 import { ThemedView } from "./themed-view";
 import { ThemedText } from "./themed-text";
-
-type Score = {
-  username: string;
-  score: number;
-};
+import { useHighScores } from "@/hooks/use-api";
 
 type Props = {
   visible: boolean;
@@ -21,38 +17,13 @@ type Props = {
 };
 
 export default function HighScoresModal({ visible, onClose }: Props) {
-  const [scores, setScores] = useState<Score[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { scores, loading, error, fetchHighScores } = useHighScores();
 
   useEffect(() => {
     if (visible) {
       fetchHighScores();
     }
-  }, [visible]);
-
-  const fetchHighScores = async () => {
-    setLoading(true);
-    setError(null);
-    console.log("Fetching high scores...");
-    try {
-      const response = await fetch("http://localhost:8000/scores");
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Fetched high scores:", data);
-        setScores(data);
-      } else {
-        const errorText = await response.text();
-        console.error("Failed to fetch high scores:", errorText);
-        setError("Failed to fetch high scores.");
-      }
-    } catch (e) {
-      console.error("An error occurred while fetching high scores:", e);
-      setError("An error occurred. Please check your connection.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [visible, fetchHighScores]);
 
   return (
     <Modal

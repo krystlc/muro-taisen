@@ -1,5 +1,5 @@
 import { Group, RoundedRect, Canvas, Rect } from "@shopify/react-native-skia";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import React, {
   useState,
@@ -15,7 +15,7 @@ import { useSharedValue } from "react-native-reanimated";
 import { GameEngine } from "@/core/gameEngine";
 import { GRID_WIDTH, GRID_HEIGHT } from "@/core/shared";
 import { saveTopScore, loadTopScore } from "@/core/storage";
-import { saveToken, getToken, deleteToken } from "@/core/auth";
+import { useAuth, useHighScores } from "@/hooks/use-api";
 import { IBlock, BlockColor, BlockType } from "@/models/block";
 import { IFallingPiece } from "@/models/shape";
 
@@ -91,15 +91,13 @@ export default function Index() {
   const [isRegisterModalVisible, setIsRegisterModalVisible] = useState(false);
   const [isHighScoresModalVisible, setIsHighScoresModalVisible] =
     useState(false);
-  const [userToken, setUserToken] = useState<string | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
   const [animatingBlocks, setAnimatingBlocks] = useState<AnimatingBlock[]>([]);
   const [countdown, setCountdown] = useState(10);
-  const [_, setToasts] = useState<{ id: number; message: string }[]>([]);
-  const router = useRouter();
   const prevChain = useRef(0);
 
-  const isLoopRunning = useSharedValue(false);
+  const { user, token, register, logout } = useAuth();
+  const { submitScore } = useHighScores();
+
   const lastMoveX = useSharedValue(0);
   const TILE_THRESHOLD = TILE_SIZE / 2;
 
@@ -109,138 +107,87 @@ export default function Index() {
   const moveDirection = useSharedValue<"left" | "right" | "none">("none");
   const isHardDropTriggeredInGesture = useSharedValue(false);
 
-  // --- Toast Management ---
-  const addToast = useCallback((message: string) => {
-    const id = Date.now();
-    setToasts((currentToasts) => [...currentToasts, { id, message }]);
-  }, []);
-
   const [topScore, setTopScore] = useState(0);
 
   // --- App Load Effect ---
   useEffect(() => {
     loadTopScore().then(setTopScore);
-    const loadUser = async () => {
-      const token = await getToken();
-      if (token) {
-        setUserToken(token);
-        try {
-          const response = await fetch("http://localhost:8000/me", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setUsername(data.username);
-          } else {
-            await deleteToken();
-            setUserToken(null);
-          }
-        } catch (e) {
-          console.error("Failed to fetch user profile", e);
-        }
-      }
-    };
-    loadUser();
   }, []);
 
   // --- Game Loop ---
-  useFocusEffect(
-    useCallback(() => {
-      if (gameState.isGameOver || !gameStarted || isLevelingUp) return;
+  const gameLoopRef = useRef<((now: number) => void) | null>(null);
+  const lastGravityTickRef = useRef(0);
 
-      isLoopRunning.value = true;
-      let lastGravityTick = 0;
+  useEffect(() => {
+    const loop = (now: number) => {
+      gameLoopRef.current?.(now);
+      requestAnimationFrame(loop);
+    };
+    const animationFrameId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
 
-      const gameLoop = (now: number) => {
-        if (!isLoopRunning.value) return;
+  useEffect(() => {
+    gameLoopRef.current = (now: number) => {
+      if (!gameStarted || isLevelingUp || gameState.isGameOver) {
+        return;
+      }
 
-        // --- Process Inputs (every frame) ---
-        if (wantsToHardDrop.value) {
-          engine.hardDrop();
-          wantsToHardDrop.value = false;
-        }
-        if (wantsToRotate.value) {
-          engine.tryRotate();
-          wantsToRotate.value = false;
-        }
-        if (moveDirection.value !== "none") {
-          engine.tryMove(moveDirection.value);
-          moveDirection.value = "none";
-        }
+      if (wantsToHardDrop.value) {
+        engine.hardDrop();
+        wantsToHardDrop.value = false;
+      }
+      if (wantsToRotate.value) {
+        engine.tryRotate();
+        wantsToRotate.value = false;
+      }
+      if (moveDirection.value !== "none") {
+        engine.tryMove(moveDirection.value);
+        moveDirection.value = "none";
+      }
 
-        // --- Apply Gravity (throttled) ---
-        const gravityDelay = Math.max(100, 500 - (gameState.level - 1) * 50);
-        if (now - lastGravityTick > gravityDelay) {
-          lastGravityTick = now;
-          if (engine.isPieceLocked) {
-            engine.resetChain();
-            engine.spawnPiece();
-          } else {
-            engine.gravityTick();
-          }
-        }
-
-        // --- Check for new chains to show toast ---
-        if (
-          engine.currentChain > 1 &&
-          engine.currentChain > prevChain.current
-        ) {
-          addToast(`CHAIN x${engine.currentChain}!`);
-        }
-        prevChain.current = engine.currentChain;
-
-        // --- Sync State and Continue Loop ---
-        setGameState({
-          grid: engine.gameState,
-          currentPiece: engine.currentPiece,
-          nextPiece: engine.nextPiece,
-          score: engine.score,
-          totalBlocksCleared: engine.totalBlocksCleared,
-          currentChain: engine.currentChain,
-          isGameOver: engine.isGameOver,
-          didWin: engine.didWin,
-          level: engine.level,
-          linkedRects: engine.linkedRects,
-          justLeveledUp: engine.justLeveledUp,
-          explodingBlocks: engine.explodingBlocks,
-        });
-
-        if (engine.justLeveledUp) {
-          engine.clearLevelUpFlag();
-          setIsLevelingUp(true);
-          isLoopRunning.value = false;
-          return;
-        }
-
-        if (engine.isGameOver) {
-          isLoopRunning.value = false;
+      const gravityDelay = Math.max(100, 500 - (gameState.level - 1) * 50);
+      if (now - lastGravityTickRef.current > gravityDelay) {
+        lastGravityTickRef.current = now;
+        if (engine.isPieceLocked) {
+          engine.resetChain();
+          engine.spawnPiece();
         } else {
-          requestAnimationFrame(gameLoop);
+          engine.gravityTick();
         }
-      };
+      }
 
-      requestAnimationFrame(gameLoop);
+      setGameState({
+        grid: engine.gameState,
+        currentPiece: engine.currentPiece,
+        nextPiece: engine.nextPiece,
+        score: engine.score,
+        totalBlocksCleared: engine.totalBlocksCleared,
+        currentChain: engine.currentChain,
+        isGameOver: engine.isGameOver,
+        didWin: engine.didWin,
+        level: engine.level,
+        linkedRects: engine.linkedRects,
+        justLeveledUp: engine.justLeveledUp,
+        explodingBlocks: engine.explodingBlocks,
+      });
+    };
+  });
 
-      return () => {
-        isLoopRunning.value = false;
-      };
-    }, [
-      gameState.isGameOver,
-      gameStarted,
-      isLevelingUp,
-      wantsToHardDrop,
-      wantsToRotate,
-      moveDirection,
-      addToast,
-    ]),
-  );
+  // --- State transition effects ---
+  useEffect(() => {
+    if (gameState.justLeveledUp) {
+      engine.clearLevelUpFlag();
+      setIsLevelingUp(true);
+    }
+  }, [gameState.justLeveledUp]);
 
   useEffect(() => {
     if (gameState.explodingBlocks.length > 0) {
       const newAnimatingBlocks: AnimatingBlock[] =
         gameState.explodingBlocks.map((b) => ({
           ...b,
-          id: `${b.row}-${b.col}-${Math.random()}`, // Unique ID
+          id: `${b.row}-${b.col}-${Math.random()}`,
         }));
       setAnimatingBlocks((current) => [...current, ...newAnimatingBlocks]);
     }
@@ -254,35 +201,11 @@ export default function Index() {
     setIsLevelingUp(false);
   }, []);
 
-  const submitScore = async (token: string, score: number) => {
-    console.log(`Submitting score: ${score} with token: ${token}`);
-    try {
-      const response = await fetch("http://localhost:8000/scores", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ score }),
-      });
-      if (response.ok) {
-        console.log("Score submitted successfully!");
-      } else {
-        const data = await response.json();
-        console.error("Failed to submit score:", data.error);
-        Alert.alert("Score Submission Failed", data.error);
-      }
-    } catch (error) {
-      console.error("Error submitting score:", error);
-      Alert.alert("Score Submission Error", "An unexpected error occurred.");
-    }
-  };
-
-  // --- Countdown & Redirect Effects ---
+  // --- Game Over Effect ---
   useEffect(() => {
     if (gameState.isGameOver) {
-      if (userToken && gameState.score > 0) {
-        submitScore(userToken, gameState.score);
+      if (token && gameState.score > 0) {
+        submitScore(token, gameState.score);
       }
       if (gameState.score > topScore) {
         saveTopScore(gameState.score);
@@ -293,13 +216,7 @@ export default function Index() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [gameState.isGameOver, gameState.score, topScore, userToken]);
-
-  useEffect(() => {
-    if (countdown <= 0 && gameState.isGameOver) {
-      handleRestart();
-    }
-  }, [countdown, gameState.isGameOver, router]);
+  }, [gameState.isGameOver, gameState.score, topScore, token, submitScore]);
 
   const handleRestart = () => {
     engine.resetGame();
@@ -340,38 +257,11 @@ export default function Index() {
   };
 
   const handleRegister = async (username: string) => {
-    console.log("handleRegister called with username:", username);
-    try {
-      const response = await fetch("http://localhost:8000/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username }),
-      });
-      console.log("Registration response status:", response.status);
-      const data = await response.json();
-      if (response.ok) {
-        console.log("Registration successful, token:", data.token);
-        await saveToken(data.token);
-        setUserToken(data.token);
-        setUsername(username);
-      } else {
-        console.error("Registration failed:", data.error);
-        Alert.alert("Registration Failed", data.error);
-      }
-    } catch (error) {
-      console.error("Error during registration:", error);
-      Alert.alert("Registration Error", "An unexpected error occurred.");
+    const result = await register(username);
+    if (!result.success) {
+      Alert.alert("Registration Failed", result.error);
     }
     setIsRegisterModalVisible(false);
-  };
-
-  const handleLogout = async () => {
-    console.log("handleLogout called");
-    await deleteToken();
-    setUserToken(null);
-    setUsername(null);
   };
 
   // --- Gestures ---
@@ -436,7 +326,6 @@ export default function Index() {
           r={4}
           color={block.color}
         />
-        {/* Top highlight */}
         <Rect
           x={x}
           y={y}
@@ -444,7 +333,6 @@ export default function Index() {
           height={borderWidth}
           color={highlightColor}
         />
-        {/* Left shadow */}
         <Rect
           x={x}
           y={y + borderWidth}
@@ -452,7 +340,6 @@ export default function Index() {
           height={TILE_SIZE - borderWidth}
           color={shadowColor}
         />
-        {/* Right shadow */}
         <Rect
           x={x + TILE_SIZE - borderWidth}
           y={y + borderWidth}
@@ -460,7 +347,6 @@ export default function Index() {
           height={TILE_SIZE - borderWidth}
           color={shadowColor}
         />
-        {/* Bottom shadow */}
         <Rect
           x={x + borderWidth}
           y={y + TILE_SIZE - borderWidth}
@@ -489,10 +375,10 @@ export default function Index() {
             title="High Scores"
             onPress={() => setIsHighScoresModalVisible(true)}
           />
-          {userToken ? (
+          {token ? (
             <View style={styles.loggedInContainer}>
-              <ThemedText>Hi, {username}</ThemedText>
-              <Button title="Logout" onPress={handleLogout} color="#ff5c5c" />
+              <ThemedText>Hi, {user?.username}</ThemedText>
+              <Button title="Logout" onPress={logout} color="#ff5c5c" />
             </View>
           ) : (
             <Button
@@ -522,15 +408,12 @@ export default function Index() {
               height={BOARD_HEIGHT}
               color="#1A1A1A"
             />
-            {/* Render all non-linked blocks */}
             {gameState.grid.map((rowArr, row) =>
               rowArr.map((block, col) => {
                 if (block.isLinked) return null;
                 return renderBlock(block, row, col);
               }),
             )}
-
-            {/* Render all linked rectangles */}
             {gameState.linkedRects.map((rect) => (
               <Group key={`rect-${rect.r}-${rect.c}`}>
                 <RoundedRect
@@ -553,8 +436,6 @@ export default function Index() {
                 />
               </Group>
             ))}
-
-            {/* Render the falling piece */}
             {gameState.currentPiece && (
               <Fragment>
                 {renderBlock(
@@ -569,8 +450,6 @@ export default function Index() {
                 )}
               </Fragment>
             )}
-
-            {/* Render exploding blocks */}
             {animatingBlocks.map((b) => (
               <ExplodingBlock
                 key={b.id}
