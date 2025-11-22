@@ -99,8 +99,6 @@ export default function Index() {
   const router = useRouter();
   const prevChain = useRef(0);
 
-  console.log("Render - userToken:", userToken, "username:", username);
-
   const isLoopRunning = useSharedValue(false);
   const lastMoveX = useSharedValue(0);
   const TILE_THRESHOLD = TILE_SIZE / 2;
