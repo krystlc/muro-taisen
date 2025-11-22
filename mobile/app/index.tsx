@@ -198,7 +198,6 @@ export default function Index() {
       gameState.isGameOver,
       gameStarted,
       isLevelingUp,
-      isLoopRunning,
       wantsToHardDrop,
       wantsToRotate,
       moveDirection,
