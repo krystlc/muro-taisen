@@ -1,7 +1,8 @@
-import { Button, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { ThemedView } from "./themed-view";
 import { ThemedText } from "./themed-text";
 import { useEffect, useState } from "react";
+import { Button } from "@react-navigation/elements";
 
 type Props = {
   isGameOver: boolean;
@@ -33,7 +34,7 @@ export default function GameOverOverlay(props: Props) {
       <ThemedText style={styles.countdownText}>
         Restarting in {countdown}...
       </ThemedText>
-      <Button title="Play Again" onPress={props.handleRestart} />
+      <Button onPress={props.handleRestart}>Play Again</Button>
     </ThemedView>
   );
 }

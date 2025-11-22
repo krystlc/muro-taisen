@@ -22,6 +22,7 @@ export class GameEngine {
   public nextPiece: IFallingPiece | null;
   public isGameOver: boolean = false;
   public didWin: boolean = false;
+  public justLeveledUp: boolean = false;
 
   // Visuals
   public linkedRects: {
@@ -48,6 +49,10 @@ export class GameEngine {
 
   public resetChain(): void {
     this.currentChain = 0;
+  }
+
+  public clearLevelUpFlag(): void {
+    this.justLeveledUp = false;
   }
 
   private generatePiece(): IFallingPiece {
@@ -85,6 +90,7 @@ export class GameEngine {
     this.currentChain = 0;
     this.isGameOver = false;
     this.didWin = false;
+    this.justLeveledUp = false;
     this.currentPiece = null;
     this.nextPiece = this.generatePiece();
     this.level = 1;
@@ -218,14 +224,33 @@ export class GameEngine {
     return totalBlocksRemovedInReaction;
   }
 
-  private updateLevel(): void {
-    const blocksPerLevel = 10;
-    const nextLevel = Math.floor(this.totalBlocksCleared / blocksPerLevel) + 1;
+  private getTotalBlocksRequiredForLevel(level: number): number {
+    if (level <= 1) {
+      return 0;
+    }
+    const base = 10;
+    const factor = 1.5;
+    // Sum of a geometric series: base * (factor^(n-1) - 1) / (factor - 1)
+    return Math.floor(
+      (base / (factor - 1)) * (Math.pow(factor, level - 1) - 1),
+    );
+  }
 
-    if (nextLevel > this.level) {
-      this.level = nextLevel;
+  private updateLevel(): void {
+    let leveledUp = false;
+    // Loop to handle multiple level-ups in one go
+    while (
+      this.totalBlocksCleared >=
+      this.getTotalBlocksRequiredForLevel(this.level + 1)
+    ) {
+      this.level++;
+      leveledUp = true;
+    }
+
+    if (leveledUp) {
+      this.justLeveledUp = true;
       this.grid.reset(); // Clear the board on level up!
-      console.log(`Level up! Board cleared.`);
+      console.log(`Level up to ${this.level}! Board cleared.`);
     }
 
     if (this.level >= this.GAME_OVER_LEVEL) {

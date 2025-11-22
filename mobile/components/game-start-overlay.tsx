@@ -5,6 +5,7 @@ import { Button } from "@react-navigation/elements";
 import { loadTopScore } from "@/core/storage";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
+import { Image } from "expo-image";
 
 type Props = {
   gameStarted: boolean;
@@ -37,9 +38,11 @@ export default function GameStartOverlay(props: Props) {
 
   return (
     <ThemedView style={styles.startContainer}>
-      <ThemedText type="title">Muro Taisen!</ThemedText>
       <TopScore />
-      <Button onPress={props.handleStartGame}>Start Game</Button>
+      <Image source={require("@/assets/images/icon.png")} style={styles.logo} />
+      <Button variant="filled" color="red" onPress={props.handleStartGame}>
+        Start Game
+      </Button>
     </ThemedView>
   );
 }
@@ -49,11 +52,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    gap: 24,
     zIndex: 100,
+  },
+  logo: {
+    width: 360,
+    aspectRatio: 1,
   },
   scoreContainer: {
     alignItems: "center",
-    gap: 8,
   },
 });

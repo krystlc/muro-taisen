@@ -24,12 +24,13 @@ import { ThemedView } from "@/components/themed-view";
 import GameOverOverlay from "@/components/game-over-overlay";
 import GameStartOverlay from "@/components/game-start-overlay";
 import NextPiecePreview from "@/components/next-piece-preview";
+import LevelUpOverlay from "@/components/level-up-overlay";
 
 // --- RENDERING CONSTANTS ---
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-const HEADER_HEIGHT = 178; // Approximate height of the parallax header
+const HEADER_HEIGHT = 280; // Approximate height of the parallax header
 const PADDING = 20;
-const TILE_SIZE = 53;
+const TILE_SIZE = 48;
 const BOARD_HEIGHT = TILE_SIZE * GRID_HEIGHT;
 const BOARD_WIDTH = TILE_SIZE * GRID_WIDTH;
 const X_OFFSET = PADDING;
@@ -63,6 +64,7 @@ interface IGameState {
     h: number;
     color: BlockColor;
   }[];
+  justLeveledUp: boolean;
 }
 
 export default function Index() {
@@ -77,8 +79,10 @@ export default function Index() {
     didWin: engine.didWin,
     level: engine.level,
     linkedRects: engine.linkedRects,
+    justLeveledUp: engine.justLeveledUp,
   });
   const [gameStarted, setGameStarted] = useState(false);
+  const [isLevelingUp, setIsLevelingUp] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [_, setToasts] = useState<{ id: number; message: string }[]>([]);
   const router = useRouter();
@@ -113,7 +117,7 @@ export default function Index() {
     useCallback(() => {
       loadTopScore().then(setTopScore);
 
-      if (gameState.isGameOver || !gameStarted) return;
+      if (gameState.isGameOver || !gameStarted || isLevelingUp) return;
 
       isLoopRunning.value = true;
       let lastGravityTick = 0;
@@ -168,7 +172,15 @@ export default function Index() {
           didWin: engine.didWin,
           level: engine.level,
           linkedRects: engine.linkedRects,
+          justLeveledUp: engine.justLeveledUp,
         });
+
+        if (engine.justLeveledUp) {
+          engine.clearLevelUpFlag();
+          setIsLevelingUp(true);
+          isLoopRunning.value = false;
+          return;
+        }
 
         if (engine.isGameOver) {
           isLoopRunning.value = false;
@@ -185,6 +197,7 @@ export default function Index() {
     }, [
       gameState.isGameOver,
       gameStarted,
+      isLevelingUp,
       isLoopRunning,
       wantsToHardDrop,
       wantsToRotate,
@@ -192,6 +205,10 @@ export default function Index() {
       addToast,
     ]),
   );
+
+  const handleLevelUpAnimationComplete = useCallback(() => {
+    setIsLevelingUp(false);
+  }, []);
 
   // --- Countdown & Redirect Effects ---
   useEffect(() => {
@@ -226,6 +243,7 @@ export default function Index() {
       didWin: engine.didWin,
       level: engine.level,
       linkedRects: engine.linkedRects,
+      justLeveledUp: engine.justLeveledUp,
     });
     setGameStarted(false);
   };
@@ -243,6 +261,7 @@ export default function Index() {
       didWin: engine.didWin,
       level: engine.level,
       linkedRects: engine.linkedRects,
+      justLeveledUp: engine.justLeveledUp,
     });
     setGameStarted(true);
   };
@@ -427,6 +446,11 @@ export default function Index() {
         isGameOver={gameState.isGameOver}
         didWin={engine.didWin}
         handleRestart={handleRestart}
+      />
+      <LevelUpOverlay
+        isLevelingUp={isLevelingUp}
+        level={gameState.level}
+        onAnimationComplete={handleLevelUpAnimationComplete}
       />
     </ThemedView>
   );
