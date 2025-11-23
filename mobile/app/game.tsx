@@ -15,7 +15,7 @@ import { useSharedValue } from "react-native-reanimated";
 import { GameEngine } from "@/core/gameEngine";
 import { GRID_WIDTH, GRID_HEIGHT } from "@/core/shared";
 import { saveTopScore, loadTopScore } from "@/core/storage";
-import { useAuth, useHighScores } from "@/hooks/use-api";
+import { useHighScores, useProvideAuth } from "@/hooks/use-api";
 import { IBlock, BlockColor, BlockType } from "@/models/block";
 import { IFallingPiece } from "@/models/shape";
 
@@ -82,7 +82,7 @@ export default function GameScreen() {
   const [countdown, setCountdown] = useState(10);
   const router = useRouter();
 
-  const { user, token, logout } = useAuth();
+  const { user, token, logout } = useProvideAuth();
   const { submitScore } = useHighScores();
 
   const lastMoveX = useSharedValue(0);

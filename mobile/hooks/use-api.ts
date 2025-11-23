@@ -52,13 +52,13 @@ export function useHighScores() {
   return { scores, loading, error, fetchHighScores, submitScore };
 }
 
-// --- Auth Hook ---
+// --- Auth Hook & Context ---
 
 export type User = {
   username: string;
 };
 
-export function useAuth() {
+export function useProvideAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

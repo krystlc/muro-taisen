@@ -2,7 +2,6 @@ import { Link } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, View, Alert } from "react-native";
 
-import { useAuth } from "@/hooks/use-api";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import RegisterModal from "@/components/register-modal";
@@ -11,13 +10,14 @@ import AvatarButton from "@/components/avatar-button";
 import BottomDrawer from "@/components/bottom-drawer";
 import { Image } from "expo-image";
 import { Button } from "@react-navigation/elements";
+import { useProvideAuth } from "@/hooks/use-api";
 
 export default function StartScreen() {
   const [isRegisterModalVisible, setIsRegisterModalVisible] = useState(false);
   const [isHighScoresModalVisible, setIsHighScoresModalVisible] =
     useState(false);
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
-  const { user, token, register, logout } = useAuth();
+  const { user, token, register, logout } = useProvideAuth();
 
   const handleRegister = async (username: string) => {
     const result = await register(username);
