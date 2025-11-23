@@ -1,5 +1,10 @@
 import { GameGrid } from "./gameGrid";
-import { IBlock, BlockColor, BlockType } from "../models/block";
+import {
+  IBlock,
+  BlockColor,
+  BlockType,
+  createNormalBlock,
+} from "../models/block";
 import { findContiguousBlocks } from "./physics";
 import { GRID_WIDTH, GRID_HEIGHT } from "./shared";
 import { createFallingPiece, IFallingPiece } from "@/models/shape";
@@ -153,6 +158,81 @@ export class GameEngine {
       console.log("GAME OVER!");
       this.currentPiece = null;
       this.isGameOver = true;
+    }
+  }
+
+  public spawnHazard(): void {
+    const hazardChance = 0.95; // Starts at 15% on level 1
+    if (Math.random() > hazardChance) {
+      return;
+    }
+
+    let hazardSize = 0;
+    if (this.level >= 10) {
+      hazardSize = 8;
+    } else if (this.level >= 7) {
+      hazardSize = 6;
+    } else if (this.level >= 4) {
+      hazardSize = 4;
+    } else if (this.level >= 2) {
+      hazardSize = 2;
+    } else {
+      // level 1
+      hazardSize = 1;
+    }
+
+    if (hazardSize === 0) {
+      return;
+    }
+
+    console.log(`Spawning hazard of size ${hazardSize}`);
+
+    const availableColors = Object.values(BlockColor).filter(
+      (color) => color !== BlockColor.EMPTY,
+    );
+
+    if (hazardSize > 2) {
+      const startCol = Math.floor(
+        Math.random() * (GRID_WIDTH - hazardSize + 1),
+      );
+      let rowToDrop = -1;
+
+      for (let r = GRID_HEIGHT - 1; r >= 0; r--) {
+        let canPlace = true;
+        for (let c = 0; c < hazardSize; c++) {
+          if (this.grid.getBlock(r, startCol + c).type !== BlockType.EMPTY) {
+            canPlace = false;
+            break;
+          }
+        }
+        if (canPlace) {
+          rowToDrop = r;
+          break;
+        }
+      }
+
+      if (rowToDrop !== -1) {
+        for (let i = 0; i < hazardSize; i++) {
+          const color =
+            availableColors[Math.floor(Math.random() * availableColors.length)];
+          const block = createNormalBlock(color);
+          this.grid.setBlock(rowToDrop, startCol + i, block);
+        }
+      }
+    } else {
+      for (let i = 0; i < hazardSize; i++) {
+        const col = Math.floor(Math.random() * GRID_WIDTH);
+        const color =
+          availableColors[Math.floor(Math.random() * availableColors.length)];
+        const block = createNormalBlock(color);
+
+        for (let r = GRID_HEIGHT - 1; r >= 0; r--) {
+          if (this.grid.getBlock(r, col).type === BlockType.EMPTY) {
+            this.grid.setBlock(r, col, block);
+            break;
+          }
+        }
+      }
     }
   }
 

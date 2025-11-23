@@ -138,11 +138,12 @@ export default function GameScreen() {
         moveDirection.value = "none";
       }
 
-      const gravityDelay = Math.max(100, 500 - (gameState.level - 1) * 50);
+      const gravityDelay = 500; // Constant drop speed
       if (now - lastGravityTickRef.current > gravityDelay) {
         lastGravityTickRef.current = now;
         if (engine.isPieceLocked) {
           engine.resetChain();
+          engine.spawnHazard(); // Spawn hazard blocks
           engine.spawnPiece();
         } else {
           engine.gravityTick();
@@ -197,6 +198,7 @@ export default function GameScreen() {
 
   const handleRestart = useCallback(() => {
     engine.resetGame();
+    setGameState(engine.getGameEngineState);
     router.navigate("/");
   }, [router]);
 
