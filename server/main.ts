@@ -43,20 +43,27 @@ interface Score {
 class GameServer {
   private app: Application;
   private router: Router;
+  private kv!: Deno.Kv;
+
   // WebSocket state
   private users: Map<string, User> = new Map(); // ws-connection-userId -> User object
   private games: Map<string, Game> = new Map(); // gameId -> Game object
   private invitations: Map<string, Invitation> = new Map(); // invitationId -> Invitation object
 
-  // High score state (in-memory)
+  // User registration state (in-memory for now, could be moved to KV)
   private registeredUsers: Map<string, RegisteredUser> = new Map(); // token -> RegisteredUser
-  private highScores: Score[] = [];
 
-  constructor() {
+  private constructor() {
     this.app = new Application();
     this.router = new Router();
     this.setupRoutes();
     this.setupMiddleware();
+  }
+
+  public static async create(): Promise<GameServer> {
+    const server = new GameServer();
+    server.kv = await Deno.openKv();
+    return server;
   }
 
   private setupMiddleware() {
@@ -136,12 +143,12 @@ class GameServer {
         return;
       }
 
-      this.highScores.push({ username: user.username, score });
-      // Keep the list sorted and trimmed
-      this.highScores.sort((a, b) => b.score - a.score);
-      if (this.highScores.length > 100) {
-        this.highScores = this.highScores.slice(0, 100);
-      }
+      const scoreRecord = {
+        username: user.username,
+        score,
+        submittedAt: new Date(),
+      };
+      await this.kv.set(["scores", Date.now()], scoreRecord);
 
       console.log(`New score of ${score} submitted for ${user.username}`);
 
@@ -154,9 +161,15 @@ class GameServer {
     }
   }
 
-  private handleGetScores(ctx: Context) {
+  private async handleGetScores(ctx: Context) {
+    const scores: Score[] = [];
+    const iter = this.kv.list<Score>({ prefix: ["scores"] });
+    for await (const res of iter) {
+      scores.push(res.value);
+    }
+    scores.sort((a, b) => b.score - a.score);
     ctx.response.status = 200;
-    ctx.response.body = this.highScores.slice(0, 10); // Return top 10
+    ctx.response.body = scores.slice(0, 10);
   }
 
   // --- WebSocket Handlers ---
@@ -612,6 +625,6 @@ class GameServer {
 }
 
 if (import.meta.main) {
-  const gameServer = new GameServer();
+  const gameServer = await GameServer.create();
   gameServer.start(8000);
 }

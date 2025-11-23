@@ -3,11 +3,9 @@ import { Canvas, Group, RoundedRect } from "@shopify/react-native-skia";
 import { IFallingPiece } from "@/models/shape";
 import { BlockType } from "@/models/block";
 import Orb from "./orb";
-import { ThemedText } from "./themed-text";
 import { ThemedView } from "./themed-view";
 
-const PREVIEW_SIZE = 100;
-const TILE_SIZE = 40;
+const TILE_SIZE = 24;
 
 interface NextPiecePreviewProps {
   nextPiece: IFallingPiece | null;
@@ -55,19 +53,18 @@ const NextPiecePreview: React.FC<NextPiecePreviewProps> = ({ nextPiece }) => {
   return (
     <ThemedView
       style={{
-        position: "absolute",
-        bottom: 20,
-        left: 20,
+        alignSelf: "flex-start",
+        marginLeft: 16,
         borderWidth: 1,
         borderColor: "#aaa",
-        borderRadius: 20,
+        backgroundColor: "#000000aa",
+        borderRadius: 8,
         zIndex: 10,
       }}
     >
-      <ThemedText style={{ paddingLeft: 10 }}>Next:</ThemedText>
-      <Canvas style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}>
+      <Canvas style={{ width: TILE_SIZE * 2 - 8, height: TILE_SIZE * 3 - 8 }}>
         {nextPiece && (
-          <Group transform={[{ translateX: 10 }, { translateY: 10 }]}>
+          <Group transform={[{ translateX: 8 }, { translateY: 8 }]}>
             {renderBlock(nextPiece.blockA, 0, 0)}
             {renderBlock(nextPiece.blockB, 1, 0)}
           </Group>

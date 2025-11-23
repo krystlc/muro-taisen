@@ -593,4 +593,21 @@ export class GameEngine {
       }
     }
   }
+
+  public get getGameEngineState() {
+    return {
+      currentChain: this.currentChain,
+      currentPiece: this.currentPiece,
+      didWin: this.didWin,
+      explodingBlocks: this.explodingBlocks,
+      grid: this.gameState,
+      isGameOver: this.isGameOver,
+      justLeveledUp: this.justLeveledUp,
+      level: this.level,
+      linkedRects: this.linkedRects,
+      nextPiece: this.nextPiece,
+      score: this.score,
+      totalBlocksCleared: this.totalBlocksCleared,
+    };
+  }
 }
