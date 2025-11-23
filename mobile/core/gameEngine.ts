@@ -510,7 +510,12 @@ export class GameEngine {
   }
 
   private lockBlock(row: number, col: number, block: IBlock): void {
-    if (row < 0 || row >= GRID_HEIGHT) return;
+    if (row < 0) {
+      this.isGameOver = true;
+      console.log("GAME OVER! Block locked above grid.");
+      return;
+    }
+    if (row >= GRID_HEIGHT) return;
     const finalBlock: IBlock = {
       ...block,
       isLocked: true,
