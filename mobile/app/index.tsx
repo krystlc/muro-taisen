@@ -218,6 +218,12 @@ export default function Index() {
     }
   }, [gameState.isGameOver, gameState.score, topScore, token, submitScore]);
 
+  useEffect(() => {
+    if (countdown <= 0 && gameState.isGameOver) {
+      handleRestart();
+    }
+  }, [countdown, gameState.isGameOver]);
+
   const handleRestart = () => {
     engine.resetGame();
     setGameState({
