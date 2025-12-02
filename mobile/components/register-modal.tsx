@@ -86,10 +86,5 @@ const styles = StyleSheet.create({
     width: 200,
     color: "white", // Assuming dark theme
   },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    gap: 20,
-  },
+  buttonContainer: {},
 });

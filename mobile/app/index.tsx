@@ -10,14 +10,14 @@ import AvatarButton from "@/components/avatar-button";
 import BottomDrawer from "@/components/bottom-drawer";
 import { Image } from "expo-image";
 import { Button } from "@react-navigation/elements";
-import { useProvideAuth } from "@/hooks/use-api";
+import { useAuth } from "@/hooks/auth-context";
 
 export default function StartScreen() {
   const [isRegisterModalVisible, setIsRegisterModalVisible] = useState(false);
   const [isHighScoresModalVisible, setIsHighScoresModalVisible] =
     useState(false);
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
-  const { user, token, register, logout } = useProvideAuth();
+  const { user, token, register, logout } = useAuth();
 
   const handleRegister = async (username: string) => {
     const result = await register(username);

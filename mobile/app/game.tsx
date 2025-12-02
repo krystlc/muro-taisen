@@ -15,7 +15,7 @@ import { useSharedValue } from "react-native-reanimated";
 import { GameEngine } from "@/core/gameEngine";
 import { GRID_WIDTH, GRID_HEIGHT } from "@/core/shared";
 import { saveTopScore, loadTopScore } from "@/core/storage";
-import { useHighScores, useProvideAuth } from "@/hooks/use-api";
+import { useHighScores } from "@/hooks/use-api";
 import { IBlock, BlockColor, BlockType } from "@/models/block";
 import { IFallingPiece } from "@/models/shape";
 
@@ -30,6 +30,7 @@ import AvatarButton from "@/components/avatar-button";
 import BottomDrawer from "@/components/bottom-drawer";
 import GameStats from "@/components/game-stats";
 import { Button } from "@react-navigation/elements";
+import { useAuth } from "@/hooks/auth-context";
 
 // --- RENDERING CONSTANTS ---
 // const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -82,7 +83,7 @@ export default function GameScreen() {
   const [countdown, setCountdown] = useState(10);
   const router = useRouter();
 
-  const { user, token, logout } = useProvideAuth();
+  const { user, token, logout } = useAuth();
   const { submitScore } = useHighScores();
 
   const lastMoveX = useSharedValue(0);
@@ -144,6 +145,7 @@ export default function GameScreen() {
         if (engine.isPieceLocked) {
           engine.resetChain();
           engine.spawnHazard(); // Spawn hazard blocks
+          engine.applyGravity(); // Settle the hazard blocks
           engine.spawnPiece();
         } else {
           engine.gravityTick();
@@ -446,7 +448,7 @@ const styles = StyleSheet.create({
     height: BOARD_HEIGHT + PADDING * 2,
     width: BOARD_WIDTH + PADDING * 2,
     alignSelf: "center",
-    borderColor: "#333",
+    borderColor: "red",
     borderWidth: 1,
     borderRadius: 8,
   },
