@@ -9,6 +9,27 @@ import { findContiguousBlocks } from "./physics";
 import { GRID_WIDTH, GRID_HEIGHT } from "./shared";
 import { createFallingPiece, IFallingPiece } from "@/models/shape";
 
+export interface IGameState {
+  grid: IBlock[][];
+  currentPiece: IFallingPiece | null;
+  nextPiece: IFallingPiece | null;
+  score: number;
+  totalBlocksCleared: number;
+  currentChain: number;
+  isGameOver: boolean;
+  didWin: boolean;
+  level: number;
+  linkedRects: {
+    r: number;
+    c: number;
+    w: number;
+    h: number;
+    color: BlockColor;
+  }[];
+  justLeveledUp: boolean;
+  explodingBlocks: { block: IBlock; row: number; col: number }[];
+}
+
 // Define the relative positions of B from A (Up, Right, Down, Left)
 const RELATIVE_POSITIONS = [
   [-1, 0], // Top
@@ -674,7 +695,7 @@ export class GameEngine {
     }
   }
 
-  public get getGameEngineState() {
+  public get getGameEngineState(): IGameState {
     return {
       currentChain: this.currentChain,
       currentPiece: this.currentPiece,

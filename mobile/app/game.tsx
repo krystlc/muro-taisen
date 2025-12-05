@@ -1,6 +1,5 @@
 import { Group, RoundedRect, Canvas, Rect } from "@shopify/react-native-skia";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import React, {
   useState,
   useRef,
@@ -8,33 +7,27 @@ import React, {
   useEffect,
   Fragment,
 } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSharedValue } from "react-native-reanimated";
 
-import { GameEngine } from "@/core/gameEngine";
+import { GameEngine, IGameState } from "@/core/gameEngine";
 import { GRID_WIDTH, GRID_HEIGHT } from "@/core/shared";
 import { saveTopScore, loadTopScore } from "@/core/storage";
 import { useHighScores } from "@/hooks/use-api";
-import { IBlock, BlockColor, BlockType } from "@/models/block";
-import { IFallingPiece } from "@/models/shape";
+import { IBlock, BlockType } from "@/models/block";
 
 import Orb from "@/components/orb";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import GameOverOverlay from "@/components/game-over-overlay";
-import NextPiecePreview from "@/components/next-piece-preview";
 import LevelUpOverlay from "@/components/level-up-overlay";
 import { ExplodingBlock } from "@/components/exploding-block";
-import AvatarButton from "@/components/avatar-button";
-import BottomDrawer from "@/components/bottom-drawer";
-import GameStats from "@/components/game-stats";
-import { Button } from "@react-navigation/elements";
 import { useAuth } from "@/hooks/auth-context";
+import { AnimatingBlock } from "@/components/game/game-puzzle-board";
+import GameHeader from "@/components/game/game-header";
 
 // --- RENDERING CONSTANTS ---
 // const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-const HEADER_HEIGHT = 280; // Approximate height of the parallax header
 const PADDING = 20;
 const TILE_SIZE = 48;
 const BOARD_HEIGHT = TILE_SIZE * GRID_HEIGHT;
@@ -45,45 +38,16 @@ const Y_OFFSET = PADDING;
 // Initialize the game engine
 const engine = new GameEngine();
 
-interface IGameState {
-  grid: IBlock[][];
-  currentPiece: IFallingPiece | null;
-  nextPiece: IFallingPiece | null;
-  score: number;
-  totalBlocksCleared: number;
-  currentChain: number;
-  isGameOver: boolean;
-  didWin: boolean;
-  level: number;
-  linkedRects: {
-    r: number;
-    c: number;
-    w: number;
-    h: number;
-    color: BlockColor;
-  }[];
-  justLeveledUp: boolean;
-  explodingBlocks: { block: IBlock; row: number; col: number }[];
-}
-
-type AnimatingBlock = {
-  id: string;
-  block: IBlock;
-  row: number;
-  col: number;
-};
-
 export default function GameScreen() {
   const [gameState, setGameState] = useState<IGameState>(
     engine.getGameEngineState,
   );
   const [isLevelingUp, setIsLevelingUp] = useState(false);
-  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
   const [animatingBlocks, setAnimatingBlocks] = useState<AnimatingBlock[]>([]);
   const [countdown, setCountdown] = useState(10);
   const router = useRouter();
 
-  const { user, token, logout } = useAuth();
+  const { token } = useAuth();
   const { submitScore } = useHighScores();
 
   const lastMoveX = useSharedValue(0);
@@ -300,39 +264,14 @@ export default function GameScreen() {
 
   return (
     <ThemedView style={styles.wrapper}>
-      <BottomDrawer
-        visible={isDrawerVisible}
-        onClose={() => setIsDrawerVisible(false)}
-      >
-        <ThemedText type="subtitle">Hi, {user?.username}</ThemedText>
-        <Button onPress={logout} color="#ff5c5c">
-          Logout
-        </Button>
-      </BottomDrawer>
-
-      <ThemedView style={styles.header}>
-        <View style={styles.headerTop}>
-          <Button
-            onPress={() => router.back()}
-            style={styles.backButtonContainer}
-          >
-            Back
-          </Button>
-          {token && <AvatarButton onPress={() => setIsDrawerVisible(true)} />}
-        </View>
-        <View style={styles.headerBottom}>
-          <NextPiecePreview nextPiece={gameState.nextPiece} />
-          <GameStats
-            level={gameState.level}
-            score={gameState.score}
-            totalBlocksCleared={gameState.totalBlocksCleared}
-          />
-        </View>
-        <Image
-          source={require("@/assets/characters/badhombre/neutral.png")}
-          style={styles.character}
-        />
-      </ThemedView>
+      <GameHeader
+        gameState={{
+          level: gameState.level,
+          nextPiece: gameState.nextPiece,
+          score: gameState.score,
+          totalBlocksCleared: gameState.totalBlocksCleared,
+        }}
+      />
       <ThemedView style={styles.gameContainer}>
         <GestureDetector gesture={composedGesture}>
           <Canvas style={styles.canvas}>
@@ -415,30 +354,6 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-  },
-  header: {
-    height: HEADER_HEIGHT,
-  },
-  headerTop: {
-    flex: 1,
-    paddingTop: 60,
-    zIndex: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  headerBottom: {
-    gap: 8,
-  },
-  backButtonContainer: {
-    alignSelf: "flex-start",
-  },
-  avatarContainer: {},
-  character: {
-    height: HEADER_HEIGHT,
-    left: 0,
-    right: 0,
-    position: "absolute",
   },
   gameContainer: {
     flex: 1,

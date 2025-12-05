@@ -10,20 +10,22 @@ type Props = {
 export default function GameStats({ level, score, totalBlocksCleared }: Props) {
   return (
     <ThemedView style={styles.statsContainer}>
-      <ThemedText>Score: {score}</ThemedText>
-      <ThemedText>Blocks: {totalBlocksCleared}</ThemedText>
-      <ThemedText type="defaultSemiBold">Level: {level}</ThemedText>
+      <ThemedText>Score</ThemedText>
+      <ThemedText type="defaultSemiBold">{score}</ThemedText>
+      <ThemedText>Blocks</ThemedText>
+      <ThemedText type="defaultSemiBold">{totalBlocksCleared}</ThemedText>
+      <ThemedText>Level</ThemedText>
+      <ThemedText type="defaultSemiBold">{level}</ThemedText>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   statsContainer: {
-    flexDirection: "row",
     zIndex: 10,
-    gap: 24,
     padding: 4,
     justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "#000000aa",
   },
 });

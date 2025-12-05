@@ -76,3 +76,21 @@ Logic: On a successful tap event (or a short vertical swipe with very little hor
 
 3. The Game Loop & Continuous Movement
 Unlike console games, holding a finger down doesn't inherently repeat the move. For continuous movement, you'll set a timer in the handleMove function that keeps calling tryMove() as long as the player's finger is within the gesture area.
+
+## 8. Battle Mode & CPU Opponent
+
+To support player-vs-cpu gameplay, the system will instantiate two separate `GameEngine` instances.
+
+1.  **Game Instances**:
+    - **Player Engine**: Controlled by user input (touch/gestures).
+    - **CPU Engine**: Controlled by an AI logic loop.
+
+2.  **CPU Logic**:
+    - The CPU will analyze its current grid state and the current falling piece.
+    - It will determine the best column and rotation to place the piece to maximize clears or survival.
+    - It simulates inputs (`tryMove`, `tryRotate`, `hardDrop`) to execute the decided move.
+
+3.  **Win Condition**:
+    - The game ends when one of the players triggers a Game Over condition (blocks stack too high).
+    - If the CPU loses, the Player wins.
+    - If the Player loses, the CPU wins.
