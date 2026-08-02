@@ -21,7 +21,16 @@ export class DamageCalculator {
    * @returns Integer representing the amount of garbage generated
    */
   public static calculateGarbage(event: DamageEvent): number {
-    // TODO: Implement exponential scaling logic based on Vitest specs
-    return 0;
+    const baseDamage = Math.floor(Math.max(0, event.shatteredCount) / 2);
+    const chainIndex = Math.max(0, Math.floor(event.chainLength) - 1);
+    const chainMultiplier = Math.pow(2.5, chainIndex);
+    const chainDamage = Math.round(baseDamage * chainMultiplier);
+
+    const powerGemBonus = event.powerGemsDestroyed.reduce(
+      (bonus, powerGem) => bonus + Math.max(0, powerGem.width * powerGem.height) * 3,
+      0,
+    );
+
+    return chainDamage + powerGemBonus;
   }
 }

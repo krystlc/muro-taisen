@@ -1,4 +1,4 @@
-import { BoardGrid, BOARD_ROWS, SPAWN_COLUMN } from './Board';
+import { BoardGrid, SPAWN_COLUMN } from './Board';
 
 export type GameStatus = 'PLAYING' | 'GAME_OVER';
 
@@ -15,7 +15,11 @@ export class GameStateValidator {
    * @returns 'GAME_OVER' if the spawn column is blocked, otherwise 'PLAYING'
    */
   public static checkStatus(grid: BoardGrid): GameStatus {
-    // TODO: Implement logic to check if grid[11][SPAWN_COLUMN] or grid[12][SPAWN_COLUMN] is occupied.
-    return 'PLAYING';
+    const visibleTopRowOccupied = grid[11]?.[SPAWN_COLUMN] !== null &&
+      grid[11]?.[SPAWN_COLUMN] !== undefined;
+    const hiddenTopRowOccupied = grid[12]?.[SPAWN_COLUMN] !== null &&
+      grid[12]?.[SPAWN_COLUMN] !== undefined;
+
+    return visibleTopRowOccupied || hiddenTopRowOccupied ? 'GAME_OVER' : 'PLAYING';
   }
 }
