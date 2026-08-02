@@ -47,14 +47,15 @@ describe('Active Piece & Input Mechanics', () => {
 
   it('should lock the piece into the board grid when it hits the floor', () => {
     const engine = new GameEngine('test_seed');
+    const initialPieceId = engine.getState().activePiece!.gems[0].id;
 
     // Force a Hard Drop to instantly hit the floor
     engine.queueInput('HARD_DROP');
     engine.tick(16);
 
     const state = engine.getState();
-    // Active piece should be null, and a new piece should be queued
-    expect(state.activePiece).toBeNull(); // OR it immediately spawns a new one
+    expect(state.activePiece).not.toBeNull();
+    expect(state.activePiece?.gems[0].id).not.toBe(initialPieceId);
 
     // The grid should now have gems resting at the bottom
     const bottomGems = state.grid[0].filter(gem => gem !== null);

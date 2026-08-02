@@ -218,19 +218,34 @@ export class GameEngine {
   }
 
   private lockPiece(): boolean {
-    const piece = this.state.activePiece;
-    if (!piece || !this.canPlacePiece(piece)) return false;
+      const piece = this.state.activePiece;
+      if (!piece || !this.canPlacePiece(piece)) return false;
 
-    const coordinates = this.getPieceCoordinates(piece);
-    coordinates.forEach(([row, column], index) => {
-      this.state.grid[row][column] = piece.gems[index];
-    });
+      const coordinates = this.getPieceCoordinates(piece);
+      coordinates.forEach(([row, column], index) => {
+        this.state.grid[row][column] = piece.gems[index];
+      });
 
-    this.state.activePiece = null;
-    GameEngine.decrementCounters(this.state.grid);
-    this.state.status = GameStateValidator.checkStatus(this.state.grid);
-    return true;
-  }
+      GameEngine.decrementCounters(this.state.grid);
+      this.state.status = GameStateValidator.checkStatus(this.state.grid);
+
+      // If game is over, keep activePiece null
+      if (this.state.status === 'GAME_OVER') {
+        this.state.activePiece = null;
+        return true;
+      }
+
+      // Spawn the next piece immediately upon locking the current one!
+      this.state.activePiece = this.createPiece();
+
+      // If the newly created piece cannot even be placed, it's a game over
+      if (!this.canPlacePiece(this.state.activePiece)) {
+        this.state.status = 'GAME_OVER';
+        this.state.activePiece = null;
+      }
+
+      return true;
+    }
 
   /**
    * Returns a snapshot of the current state for the rendering layer.
