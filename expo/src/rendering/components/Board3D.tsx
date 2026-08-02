@@ -1,35 +1,37 @@
-// 3D representation of the 6x12 grid
-// src/rendering/components/Board3D.tsx
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber/native';
-import * as THREE from 'three';
 import { GameEngine } from '../../core/engine/GameEngine';
+import { BOARD_COLS, BOARD_ROWS } from '../../core/engine/Board';
+import * as THREE from 'three';
 
-interface Board3DProps {
+// 1. Update the interface to expect the engine instance
+export interface Board3DProps {
   engine: GameEngine;
 }
 
+/**
+ * @agent_instruction
+ * High-performance WebGL loop.
+ * Do NOT use React state to drive the gem positions.
+ * Instead, use `useFrame` to pull `engine.getState()` and directly mutate
+ * the position/color of `InstancedMesh` or a pool of standard meshes inside the groupRef.
+ */
 export const Board3D: React.FC<Board3DProps> = ({ engine }) => {
   const groupRef = useRef<THREE.Group>(null);
 
-  useFrame((_, delta) => {
-    // Advance tick loop deterministically based on delta time
-    engine.tick(delta * 1000);
+  useFrame((rootState, delta) => {
+    // This runs directly in the WebGL animation loop (60fps)
+    const gameState = engine.getState();
 
-    // Imperatively update 3D gem positions without React state re-renders
     if (groupRef.current) {
-      const state = engine.getState();
-      // Synchronize instanced meshes or child meshes with state.grid...
+      // TODO: Agent to update the children meshes of groupRef based on gameState.grid
+      // e.g., mapping through the grid and setting visible=true/false and updating material colors
     }
   });
 
   return (
-    <group ref={groupRef} position={[-1.5, -3, 0]}>
-      {/* 3D Board Frame Boundaries */}
-      <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(6, 12, 0.5)]} />
-        <lineBasicMaterial color="cyan" />
-      </lineSegments>
+    <group ref={groupRef} position={[-BOARD_COLS / 2, -BOARD_ROWS / 2, 0]}>
+      {/* TODO: Agent to instantiate a pool of Gem meshes here */}
     </group>
   );
 };
