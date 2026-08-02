@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GameButton, ScreenShell, gameColors } from '../components/game-ui';
+import { useGameStore, type CharacterName } from '../store/useGameStore';
 
-const characters = [
+const characters: { accent: string; description: string; name: CharacterName }[] = [
   { accent: '#56d8ff', description: 'Balanced and ready for anything.', name: 'MIZU' },
   { accent: '#ff6ea8', description: 'Aggressive plays. Bigger risks.', name: 'KIBA' },
   { accent: '#ffd166', description: 'Slow burn. Total control.', name: 'RAI' },
@@ -13,7 +13,8 @@ const characters = [
 
 export default function CharacterSelectScreen() {
   const router = useRouter();
-  const [selectedCharacter, setSelectedCharacter] = useState(characters[0].name);
+  const selectedCharacter = useGameStore((state) => state.player1.name);
+  const setSelectedCharacter = useGameStore((state) => state.setPlayer1Character);
 
   return (
     <ScreenShell

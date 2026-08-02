@@ -1,112 +1,75 @@
+import { Canvas } from '@react-three/fiber/native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import { GameButton, ScreenShell, gameColors } from '../components/game-ui';
-
-const grid = Array.from({ length: 25 });
+import { GameButton, ScreenShell, VersusBar, gameColors } from '../components/game-ui';
+import { GameEngine } from '../core/engine/GameEngine';
+import { GestureController } from '../input/GestureController';
+import { useGameStore } from '../store/useGameStore';
+import { Board3D } from '../rendering/components/Board3D';
 
 export default function BattleScreen() {
   const router = useRouter();
+  const player1 = useGameStore((state) => state.player1);
+  const player2 = useGameStore((state) => state.player2);
+  const difficulty = useGameStore((state) => state.difficulty);
+  const engineRef = useRef(new GameEngine('match_seed_123'));
+
+  useEffect(() => {
+    console.log('[BattleScreen] match ready', {
+      difficulty,
+      engineHasActivePiece: Boolean(engineRef.current.getState().activePiece),
+      player1: player1.name,
+      player2: player2.name,
+    });
+  }, [difficulty, player1.name, player2.name]);
 
   return (
     <ScreenShell
-      eyebrow="ROUND 01 // READY"
+      eyebrow="ROUND 01 // FIGHT"
       onBack={() => router.back()}
-      subtitle="The Three.js arena will take over this space next."
+      subtitle={`Good luck. ${difficulty} difficulty.`}
       title="Battle"
     >
       <StatusBar style="light" />
-      <View style={styles.statusRow}>
-        <View>
-          <Text style={styles.statusLabel}>PLAYER</Text>
-          <Text style={styles.statusValue}>MIZU</Text>
-        </View>
-        <Text style={styles.vs}>VS</Text>
-        <View style={styles.opponent}>
-          <Text style={styles.statusLabel}>OPPONENT</Text>
-          <Text style={styles.statusValue}>CPU // 01</Text>
-        </View>
-      </View>
+      <VersusBar player1Name={player1.name} player2Name={player2.name} />
       <View style={styles.arena}>
-        <View style={styles.grid}>
-          {grid.map((_, index) => (
-            <View key={index} style={[styles.cell, index === 12 && styles.activeCell]} />
-          ))}
-        </View>
-        <Text style={styles.arenaLabel}>THREE.JS ARENA LOADING POINT</Text>
+        <GestureController engine={engineRef.current}>
+          <Canvas
+            orthographic
+            style={styles.canvas}
+            camera={{ far: 1000, near: 0.1, position: [0, 0, 20], zoom: 30 }}
+          >
+            <color attach="background" args={[gameColors.dark]} />
+            <ambientLight intensity={1.2} />
+            <directionalLight position={[0, 0, 10]} intensity={1} />
+            <Board3D engine={engineRef.current} />
+          </Canvas>
+        </GestureController>
       </View>
-      <GameButton label="RETURN TO TITLE" onPress={() => router.replace('/start')} variant="secondary" />
+      <GameButton
+        label="SURRENDER"
+        onPress={() => router.replace('/start')}
+        variant="secondary"
+      />
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  statusRow: {
-    alignItems: 'center',
-    backgroundColor: gameColors.panel,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  statusLabel: {
-    color: gameColors.muted,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  statusValue: {
-    color: gameColors.text,
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 4,
-  },
-  opponent: {
-    alignItems: 'flex-end',
-  },
-  vs: {
-    color: gameColors.pink,
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 1,
+  canvas: {
+    flex: 1,
   },
   arena: {
-    alignItems: 'center',
-    backgroundColor: '#0c1220',
+    backgroundColor: gameColors.dark,
     borderColor: '#273449',
     borderRadius: 18,
     borderWidth: 1,
-    justifyContent: 'center',
+    flex: 1,
     marginVertical: 18,
-    minHeight: 280,
-    padding: 28,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 5,
-    maxWidth: 220,
-  },
-  cell: {
-    backgroundColor: '#172337',
-    borderRadius: 3,
-    height: 36,
-    width: 36,
-  },
-  activeCell: {
-    backgroundColor: gameColors.cyan,
-    shadowColor: gameColors.cyan,
-    shadowOpacity: 0.7,
-    shadowRadius: 12,
-  },
-  arenaLabel: {
-    color: '#526074',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginTop: 26,
-    textAlign: 'center',
+    minHeight: 400,
+    overflow: 'hidden',
   },
 });

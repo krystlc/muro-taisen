@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { gameColors } from './game-theme';
+
+export { gameColors } from './game-theme';
+export { VersusBar } from './game-ui/VersusBar';
+
 type ScreenShellProps = {
   children: ReactNode;
   eyebrow?: string;
@@ -20,6 +25,7 @@ export function ScreenShell({ children, eyebrow, onBack, subtitle, title }: Scre
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topBar}>
@@ -46,6 +52,7 @@ export function GameButton({ label, onPress, variant = 'primary' }: GameButtonPr
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      onStartShouldSetResponder={() => true}
       style={({ pressed }) => [
         styles.button,
         variant === 'primary' && styles.primaryButton,
@@ -67,15 +74,6 @@ export function GameButton({ label, onPress, variant = 'primary' }: GameButtonPr
     </Pressable>
   );
 }
-
-export const gameColors = {
-  cyan: '#56d8ff',
-  dark: '#080b14',
-  muted: '#8491a8',
-  panel: '#111827',
-  pink: '#ff6ea8',
-  text: '#f4f8ff',
-};
 
 const styles = StyleSheet.create({
   screen: {

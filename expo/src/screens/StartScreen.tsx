@@ -21,7 +21,7 @@ export default function StartScreen() {
         <View style={[styles.block, styles.blockYellow]} />
       </View>
       <View style={styles.actions}>
-        <GameButton label="START MATCH" onPress={() => router.push('/character-select')} />
+        <GameButton label="START MATCH" onPress={() => router.replace('/character-select')} />
         <GameButton
           label="HOW TO PLAY"
           onPress={() => router.push('/difficulty-select')}

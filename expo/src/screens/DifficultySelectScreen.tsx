@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GameButton, ScreenShell, gameColors } from '../components/game-ui';
+import { useGameStore, type DifficultyLabel } from '../store/useGameStore';
 
-const difficulties = [
+const difficulties: { description: string; label: DifficultyLabel }[] = [
   { description: 'Take your time and learn the arena.', label: 'ROOKIE' },
   { description: 'A fair fight with a little pressure.', label: 'TAISEN' },
   { description: 'No mistakes. No second chances.', label: 'MASTER' },
@@ -13,7 +13,8 @@ const difficulties = [
 
 export default function DifficultySelectScreen() {
   const router = useRouter();
-  const [selectedDifficulty, setSelectedDifficulty] = useState(difficulties[1].label);
+  const selectedDifficulty = useGameStore((state) => state.difficulty);
+  const setSelectedDifficulty = useGameStore((state) => state.setDifficulty);
 
   return (
     <ScreenShell
