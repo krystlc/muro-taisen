@@ -132,13 +132,28 @@ export class GameEngine {
     const partnerColor = colors[this.prng.nextInt(0, colors.length)];
     const pieceId = this.pieceSequence++;
 
+    // Helper to generate a gem with correct state data
+    const generateGem = (id: string, color: GemColor): Gem => {
+      const roll = this.prng.nextInt(0, 100);
+
+      // 20% chance to be a CRASH (Exploding) block
+      if (roll < 20) {
+        return { id, color, type: GemType.CRASH };
+      }
+      // 10% chance to be a COUNTER (Frozen) block for testing
+      else if (roll < 30) {
+        return { id, color, type: GemType.COUNTER, counterValue: 5 };
+      }
+
+      // 70% chance to be a NORMAL block
+      return { id, color, type: GemType.NORMAL };
+    };
+
     return {
       gems: [
-        { id: `piece-${pieceId}-pivot`, color: pivotColor, type: GemType.NORMAL },
-        { id: `piece-${pieceId}-partner`, color: partnerColor, type: GemType.NORMAL },
+        generateGem(`piece-${pieceId}-pivot`, pivotColor),
+        generateGem(`piece-${pieceId}-partner`, partnerColor),
       ],
-      // Spawn lower down if row 12 is reserved as the hidden overflow ceiling,
-      // or set pivot to BOARD_ROWS - 3 so partner sits at BOARD_ROWS - 2 cleanly.
       row: BOARD_ROWS - 3,
       column: SPAWN_COLUMN,
       rotation: 0,
@@ -233,20 +248,32 @@ export class GameEngine {
       this.state.grid[row][column] = piece.gems[index];
     });
 
-    // 1. Apply column gravity so unsupported/dangling gems drop independently per column
-    let moved = true;
-    while (moved) {
-      moved = ChainResolver.applyGravity(this.state.grid);
+    // --- THE CHAIN REACTION LOOP ---
+    // Keep applying gravity, merging, and resolving until no more gems shatter.
+    let isChaining = true;
+    while (isChaining) {
+      // 1. Apply column gravity so unsupported/dangling gems drop independently
+      let moved = true;
+      while (moved) {
+        moved = ChainResolver.applyGravity(this.state.grid);
+      }
+
+      // 2. Detect and merge any 2x2 or larger rectangular blocks into Power Gems
+      Merger.detectAndMergePowerGems(this.state.grid);
+
+      // 3. Resolve matches and score updates
+      const chainResult = ChainResolver.resolveStep(this.state.grid);
+      GameLogger.logState('Resolve any resulting matches, chains, and score updates', this.state.grid, chainResult);
+
+      // 4. If gems were destroyed, we must loop again to drop the blocks above the gaps!
+      if (chainResult.gemsShattered === 0) {
+        isChaining = false;
+      } else {
+        // Optional: Increment this.state.score here based on chain combo multiplier!
+      }
     }
 
-    // 2. Detect and merge any 2x2 or larger rectangular blocks into Power Gems
-    Merger.detectAndMergePowerGems(this.state.grid);
-
-    // 3. Resolve any resulting matches, chains, and score updates
-    const chainResult = ChainResolver.resolveStep(this.state.grid);
-    GameLogger.logState('Resolve any resulting matches, chains, and score updates', this.state.grid, chainResult);
-
-    // 4. Decrement counters and validate final board status
+    // 5. Decrement counters and validate final board status
     GameEngine.decrementCounters(this.state.grid);
     this.state.status = GameStateValidator.checkStatus(this.state.grid);
 
@@ -255,7 +282,7 @@ export class GameEngine {
       return true;
     }
 
-    // 5. Pre-check spawn validity before instantiating the next piece
+    // 6. Pre-check spawn validity before instantiating the next piece
     const nextPiece = this.createPiece();
     if (!this.canPlacePiece(nextPiece)) {
       this.state.status = 'GAME_OVER';

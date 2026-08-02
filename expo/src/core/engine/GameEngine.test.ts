@@ -1,6 +1,6 @@
 import { GameEngine } from './GameEngine';
-import { GemType } from '../models/Gem';
-import { describe, beforeEach, test, expect } from 'vitest';
+import { GemColor, GemType } from '../models/Gem';
+import { describe, beforeEach, test, expect, it } from 'vitest';
 import { SPAWN_COLUMN } from './Board';
 
 describe('GameEngine Core Mechanics', () => {
@@ -146,5 +146,74 @@ describe('GameEngine Core Mechanics', () => {
     const finalState = engine.getState();
     expect(finalState.status).toBe('GAME_OVER');
     expect(finalState.activePiece).toBeNull();
+  });
+});
+
+describe('GameEngine Generation & Counter Logic', () => {
+  it('should generate CRASH and COUNTER gems based on the updated probability logic', () => {
+    const engine = new GameEngine('test_seed_123');
+
+    let crashCount = 0;
+    let counterCount = 0;
+    let normalCount = 0;
+
+    // Hard drop 50 pieces (100 gems total) to prove the new generator logic spawns all types
+    for (let i = 0; i < 50; i++) {
+      const state = engine.getState();
+      const piece = state.activePiece;
+
+      // If game over is reached, break early (though 50 hard drops in a single column will likely top out,
+      // so we will simulate by clearing the grid if needed, or just moving them left/right)
+      if (!piece) break;
+
+      piece.gems.forEach((gem) => {
+        if (gem.type === GemType.CRASH) {
+          crashCount++;
+        } else if (gem.type === GemType.COUNTER) {
+          counterCount++;
+          // Prove that frozen blocks correctly get their countdown value
+          expect(gem.counterValue).toBe(5);
+        } else if (gem.type === GemType.NORMAL) {
+          normalCount++;
+        }
+      });
+
+      // Clear the grid row to prevent GAME_OVER from stacking too high
+      state.grid[0] = state.grid[0].map(() => null);
+
+      // Force a drop to lock the piece and spawn the next one
+      engine.queueInput('HARD_DROP');
+      engine.tick(0);
+    }
+
+    // Assert that the engine is now capable of producing all three block types
+    expect(crashCount).toBeGreaterThan(0);
+    expect(counterCount).toBeGreaterThan(0);
+    expect(normalCount).toBeGreaterThan(0);
+  });
+
+  it('should decrement COUNTER blocks upon piece locking and thaw them to NORMAL when reaching 0', () => {
+    const engine = new GameEngine('test_seed_456');
+    const state = engine.getState();
+
+    // Inject a frozen gem manually into the grid at row 0, col 0
+    state.grid[0][0] = {
+      id: 'test-frozen-block',
+      color: GemColor.RED,
+      type: GemType.COUNTER,
+      counterValue: 2,
+    };
+
+    // Simulate 1st piece locking (Counters go from 2 -> 1)
+    GameEngine.decrementCounters(state.grid);
+
+    expect(state.grid[0][0]?.type).toBe(GemType.COUNTER);
+    expect(state.grid[0][0]?.counterValue).toBe(1);
+
+    // Simulate 2nd piece locking (Counters go from 1 -> 0, thawing the block)
+    GameEngine.decrementCounters(state.grid);
+
+    expect(state.grid[0][0]?.type).toBe(GemType.NORMAL);
+    expect(state.grid[0][0]?.counterValue).toBeUndefined(); // Counter is wiped entirely
   });
 });

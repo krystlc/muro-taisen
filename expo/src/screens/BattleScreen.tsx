@@ -111,32 +111,45 @@ export default function BattleScreen() {
             </View>
           ) : (
             <View style={styles.boardContainer}>
-              {/* Render rows from top (BOARD_ROWS - 1) down to 0 */}
+
               {displayGrid.slice().reverse().map((row, rIndex) => {
                 const actualRowIndex = BOARD_ROWS - 1 - rIndex;
                 return (
                   <View key={`row-${actualRowIndex}`} style={styles.row}>
                     {row.map((gem, cIndex) => {
-                      const isFrozen = gem?.type === GemType.COUNTER && (gem.counterValue ?? 0) > 0;
-                      const isPowerGem = !!gem?.powerGemId;
+                      if (!gem) {
+                        return <View key={`cell-${actualRowIndex}-${cIndex}`} style={styles.cell} />;
+                      }
+
+                      // Strict deterministic state checks
+                      const isFrozen = gem.type === GemType.COUNTER;
+                      const isExploding = gem.type === GemType.CRASH;
+                      const isPowerGem = !!gem.powerGemId && !isFrozen;
 
                       return (
                         <View
                           key={`cell-${actualRowIndex}-${cIndex}`}
                           style={[
                             styles.cell,
-                            gem ? { backgroundColor: getGemColor(gem.color) } : null,
+                            { backgroundColor: getGemColor(gem.color) },
+                            isExploding && styles.explodingCell,
                             isFrozen && styles.frozenCell,
                             isPowerGem && styles.powerGemCell,
                           ]}
                         >
                           {isFrozen && (
                             <View style={styles.counterBadge}>
+                              {/* Strictly render the engine's counterValue */}
                               <Text style={styles.counterText}>{gem.counterValue}</Text>
                             </View>
                           )}
-                          {isPowerGem && !isFrozen && (
+
+                          {isPowerGem && (
                             <View style={styles.powerGemCore} />
+                          )}
+
+                          {isExploding && (
+                            <View style={styles.explodingCore} />
                           )}
                         </View>
                       );
@@ -214,6 +227,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
   },
+
   cell: {
     flex: 1,
     margin: 1,
@@ -221,7 +235,37 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     borderWidth: 0.5,
     borderColor: '#1e293b',
+    overflow: 'hidden',
   },
+  explodingCell: {
+    borderRadius: 16, // Forces circular shape for crash blocks
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  explodingCore: {
+    flex: 1,
+    margin: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  frozenCell: {
+    borderColor: '#00e5ff',
+    borderWidth: 2,
+    opacity: 0.85,
+  },
+  counterBadge: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 2,
+  },
+  counterText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+
   gameOverOverlay: {
     position: 'absolute',
     top: '30%',
@@ -241,23 +285,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
   },
-  frozenCell: {
-    borderColor: '#00e5ff',
-    borderWidth: 2,
-    opacity: 0.85,
-  },
-  counterBadge: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 2,
-  },
-  counterText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+
   powerGemCell: {
     borderColor: '#ffffff',
     borderWidth: 1.5,

@@ -1,3 +1,4 @@
+// src/core/engine/ChainResolver.ts
 import { Gem, GemColor, GemType } from '../models/Gem';
 import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
 
@@ -5,35 +6,124 @@ export class ChainResolver {
   public static resolveStep(grid: BoardGrid): { gemsShattered: number; powerGemIdsShattered: Set<string> } {
     let gemsShattered = 0;
     const powerGemIdsShattered = new Set<string>();
-    const gemsToRemove = new Set<string>(); // Store coordinates as "row,col"
+    const gemsToRemove = new Set<string>();
     const countersToThaw = new Set<string>();
 
-    // 1. Find all active Crash Gems
+    const visitedGlobal = new Set<string>();
+
+    // Find all connected clusters on the board
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let c = 0; c < BOARD_COLS; c++) {
-        const gem = grid[r][c];
-        if (gem?.type === GemType.CRASH) {
-          this.floodFillShatter(
-            grid,
-            r,
-            c,
-            gem.color,
-            gemsToRemove,
-            countersToThaw,
-            powerGemIdsShattered,
-          );
+        const startKey = `${r},${c}`;
+        if (visitedGlobal.has(startKey)) continue;
+
+        const startGem = grid[r][c];
+        if (!startGem || startGem.type === GemType.COUNTER) continue;
+
+        // Traverse the connected component of the same color
+        const cluster: Array<{ r: number; c: number; gem: Gem }> = [];
+        const queue: Array<{ r: number; c: number }> = [{ r, c }];
+        const visitedCluster = new Set<string>();
+        visitedCluster.add(startKey);
+
+        let hasCrashGem = false;
+        let hasNormalGem = false;
+
+        while (queue.length > 0) {
+          const curr = queue.shift()!;
+          const currGem = grid[curr.r][curr.c]!;
+          cluster.push({ r: curr.r, c: curr.c, gem: currGem });
+
+          if (currGem.type === GemType.CRASH) hasCrashGem = true;
+          if (currGem.type === GemType.NORMAL) hasNormalGem = true;
+          if (currGem.powerGemId) powerGemIdsShattered.add(currGem.powerGemId);
+
+          // Check 4-directional neighbors
+          const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+          for (const [dr, dc] of directions) {
+            const nr = curr.r + dr;
+            const nc = curr.c + dc;
+            if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
+              const neighborKey = `${nr},${nc}`;
+              const neighborGem = grid[nr][nc];
+
+              if (neighborGem?.type === GemType.COUNTER) {
+                countersToThaw.add(neighborKey);
+              } else if (
+                neighborGem &&
+                neighborGem.color === currGem.color &&
+                !visitedCluster.has(neighborKey)
+              ) {
+                visitedCluster.add(neighborKey);
+                queue.push({ r: nr, c: nc });
+              }
+            }
+          }
+        }
+
+        // Mark all nodes in this cluster as globally visited
+        visitedCluster.forEach(k => visitedGlobal.add(k));
+
+        // PUZZLE FIGHTER RULE:
+        // A cluster ONLY explodes if it contains AT LEAST ONE Crash Gem AND AT LEAST ONE Normal Gem of that color!
+        // (A lone crash gem with no normal matches will have hasNormalGem === false and will not detonate).
+        if (hasCrashGem && hasNormalGem) {
+          cluster.forEach(item => gemsToRemove.add(`${item.r},${item.c}`));
         }
       }
     }
 
-    // 2. Remove marked gems
+    // Expand power gem group deletions / side propagations
+    let expansionOccurred = true;
+    while (expansionOccurred) {
+      expansionOccurred = false;
+      const currentGemList = Array.from(gemsToRemove);
+
+      for (const coord of currentGemList) {
+        const [r, c] = coord.split(',').map(Number);
+        const gem = grid[r][c];
+
+        // Power gem full group expansion
+        if (gem?.powerGemId && !powerGemIdsShattered.has(gem.powerGemId)) {
+          powerGemIdsShattered.add(gem.powerGemId);
+          for (let pr = 0; pr < BOARD_ROWS; pr++) {
+            for (let pc = 0; pc < BOARD_COLS; pc++) {
+              if (grid[pr][pc]?.powerGemId === gem.powerGemId) {
+                const targetKey = `${pr},${pc}`;
+                if (!gemsToRemove.has(targetKey)) {
+                  gemsToRemove.add(targetKey);
+                  expansionOccurred = true;
+                }
+              }
+            }
+          }
+        }
+
+        // Side-connection propagation for counters or adjacent matching colors
+        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        for (const [dr, dc] of directions) {
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
+            const neighbor = grid[nr][nc];
+            const neighborKey = `${nr},${nc}`;
+            if (neighbor?.type === GemType.COUNTER) {
+              countersToThaw.add(neighborKey);
+            }
+          }
+        }
+      }
+    }
+
+    // Remove marked gems
     gemsToRemove.forEach(coord => {
       const [r, c] = coord.split(',').map(Number);
-      grid[r][c] = null;
-      gemsShattered++;
+      if (grid[r][c] !== null) {
+        grid[r][c] = null;
+        gemsShattered++;
+      }
     });
 
-    // Thaw after shatter traversal so newly normal gems cannot join this same chain.
+    // Thaw counters
     countersToThaw.forEach(coord => {
       const [r, c] = coord.split(',').map(Number);
       const gem = grid[r][c];
@@ -46,72 +136,13 @@ export class ChainResolver {
     return { gemsShattered, powerGemIdsShattered };
   }
 
-  private static floodFillShatter(
-    grid: BoardGrid,
-    startR: number,
-    startC: number,
-    targetColor: GemColor,
-    gemsToRemove: Set<string>,
-    countersToThaw: Set<string>,
-    powerGemIdsShattered: Set<string>
-  ) {
-    const queue: [number, number][] = [[startR, startC]];
-    const visited = new Set<string>();
-
-    while (queue.length > 0) {
-      const [r, c] = queue.shift()!;
-      const key = `${r},${c}`;
-
-      if (visited.has(key)) continue;
-      visited.add(key);
-
-      const gem = grid[r][c];
-      if (!gem || gem.color !== targetColor) continue;
-
-      // If it's a matching color (Normal or Crash), mark for removal
-      gemsToRemove.add(key);
-
-      // When a gem with a powerGemId is marked for removal, queue ALL cells sharing that powerGemId:
-      if (gem.powerGemId) {
-        powerGemIdsShattered.add(gem.powerGemId);
-        // Mark all board cells matching this powerGemId for removal
-        for (let pr = 0; pr < BOARD_ROWS; pr++) {
-          for (let pc = 0; pc < BOARD_COLS; pc++) {
-            if (grid[pr][pc]?.powerGemId === gem.powerGemId) {
-              gemsToRemove.add(`${pr},${pc}`);
-            }
-          }
-        }
-      }
-
-      // Check adjacent cells (Up, Down, Left, Right)
-      const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      for (const [dr, dc] of directions) {
-        const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
-          const nextGem = grid[nr][nc];
-          if (nextGem?.type === GemType.COUNTER) {
-            countersToThaw.add(`${nr},${nc}`);
-          } else if (
-            nextGem &&
-            nextGem.color === targetColor &&
-            nextGem.type === GemType.NORMAL
-          ) {
-            queue.push([nr, nc]);
-          }
-        }
-      }
-    }
-  }
-
   public static resolveRainbowGem(grid: BoardGrid, row: number, col: number): void {
     const rainbowGem = grid[row]?.[col];
     if (!rainbowGem || rainbowGem.type !== GemType.RAINBOW) return;
 
     const gemBelow = row > 0 ? grid[row - 1]?.[col] : null;
-    if (gemBelow?.type === GemType.NORMAL) {
+    if (gemBelow) {
       const targetColor = gemBelow.color;
-
       for (let r = 0; r < grid.length; r++) {
         for (let c = 0; c < grid[r].length; c++) {
           if (grid[r][c]?.color === targetColor) {
@@ -120,112 +151,73 @@ export class ChainResolver {
         }
       }
     }
-
-    // A rainbow gem always shatters after resolving its landing effect.
     grid[row][col] = null;
   }
 
-  // Update inside ChainResolver.ts
   public static applyGravity(grid: BoardGrid): boolean {
-    let moved = false;
-    const processedPowerGems = new Set<string>();
+    let anyMoved = false;
+    let movedThisPass = true;
 
-    // 1. First pass: Handle multi-tile Power Gems as rigid bodies
-    // Scan from bottom to top to evaluate blocks correctly
-    for (let r = 0; r < BOARD_ROWS; r++) {
-      for (let c = 0; c < BOARD_COLS; c++) {
-        const gem = grid[r][c];
-        if (!gem || !gem.powerGemId || !gem.powerWidth || !gem.powerHeight) continue;
-        if (processedPowerGems.has(gem.powerGemId)) continue;
-        processedPowerGems.add(gem.powerGemId);
+    while (movedThisPass) {
+      movedThisPass = false;
+      const processedPowerGems = new Set<string>();
 
-        const pWidth = gem.powerWidth;
-        const pHeight = gem.powerHeight;
-        const baseRow = r;
-        const baseCol = c;
+      for (let r = 1; r < BOARD_ROWS; r++) {
+        for (let c = 0; c < BOARD_COLS; c++) {
+          const gem = grid[r][c];
+          if (!gem) continue;
 
-        // Check how many rows down the entire block can fall
-        let dropDistance = 0;
-        let canFall = true;
+          if (gem.powerGemId) {
+            if (processedPowerGems.has(gem.powerGemId)) continue;
+            processedPowerGems.add(gem.powerGemId);
 
-        while (canFall) {
-          const targetRow = baseRow - (dropDistance + 1);
-          if (targetRow < 0) break;
-
-          // Check every column footprint across the entire width of the Power Gem
-          for (let w = 0; w < pWidth; w++) {
-            const checkCol = baseCol + w;
-            // Check all rows of the power gem at this column width
-            for (let h = 0; h < pHeight; h++) {
-              const currentCellRow = baseRow + h;
-              const destinationRow = targetRow + h;
-
-              const cellBelow = grid[destinationRow]?.[checkCol];
-              // It's blocked if the destination cell contains an alien block
-              // that is NOT part of this same Power Gem's current footprint.
-              const isSelf = currentCellRow >= targetRow && currentCellRow < targetRow + pHeight && checkCol >= baseCol && checkCol < baseCol + pWidth;
-
-              if (cellBelow !== null && !isSelf) {
-                canFall = false;
-                break;
+            let canFall = true;
+            for (let pr = 0; pr < BOARD_ROWS; pr++) {
+              for (let pc = 0; pc < BOARD_COLS; pc++) {
+                if (grid[pr][pc]?.powerGemId === gem.powerGemId) {
+                  const belowRow = pr - 1;
+                  if (belowRow < 0) {
+                    canFall = false;
+                    break;
+                  }
+                  const cellBelow = grid[belowRow][pc];
+                  if (cellBelow !== null && cellBelow.powerGemId !== gem.powerGemId) {
+                    canFall = false;
+                    break;
+                  }
+                }
               }
+              if (!canFall) break;
             }
-            if (!canFall) break;
-          }
 
-          if (canFall) {
-            dropDistance++;
-          }
-        }
-
-        // If the entire rigid body can drop, shift all cells together
-        // If the entire rigid body can drop, shift all cells together
-        if (dropDistance > 0) {
-          // Collect all current coordinates and references explicitly typed
-          const blockCells: { row: number; col: number; gem: Gem }[] = [];
-          for (let h = 0; h < pHeight; h++) {
-            for (let w = 0; w < pWidth; w++) {
-              const currR = baseRow + h;
-              const currC = baseCol + w;
-              const currentGem = grid[currR][currC];
-              if (currentGem && currentGem.powerGemId === gem.powerGemId) {
-                blockCells.push({ row: currR, col: currC, gem: currentGem });
-                grid[currR][currC] = null;
+            if (canFall) {
+              const pieces = [];
+              for (let pr = 0; pr < BOARD_ROWS; pr++) {
+                for (let pc = 0; pc < BOARD_COLS; pc++) {
+                  if (grid[pr][pc]?.powerGemId === gem.powerGemId) {
+                    pieces.push({ r: pr, c: pc, g: grid[pr][pc] });
+                    grid[pr][pc] = null;
+                  }
+                }
               }
+              pieces.forEach(p => {
+                grid[p.r - 1][p.c] = p.g;
+              });
+              movedThisPass = true;
+              anyMoved = true;
+            }
+          } else {
+            if (grid[r - 1][c] === null) {
+              grid[r - 1][c] = gem;
+              grid[r][c] = null;
+              movedThisPass = true;
+              anyMoved = true;
             }
           }
-
-          // Place them at their new dropped positions
-          blockCells.forEach(({ row, col, gem: g }) => {
-            const newRow = row - dropDistance;
-            grid[newRow][col] = g;
-          });
-
-          moved = true;
         }
       }
     }
 
-    // 2. Second pass: Handle standard single gems normal gravity fall
-    for (let c = 0; c < BOARD_COLS; c++) {
-      let emptyRow = 0;
-      for (let r = 0; r < BOARD_ROWS; r++) {
-        const gem = grid[r][c];
-        if (gem !== null) {
-          // Skip multi-tile power gem components handled in pass 1
-          if (gem.powerGemId && gem.powerWidth && gem.powerHeight) {
-            emptyRow = r + 1;
-            continue;
-          }
-          if (!gem.powerGemId && r !== emptyRow) {
-            grid[emptyRow][c] = gem;
-            grid[r][c] = null;
-            moved = true;
-          }
-          emptyRow++;
-        }
-      }
-    }
-    return moved;
+    return anyMoved;
   }
 }
