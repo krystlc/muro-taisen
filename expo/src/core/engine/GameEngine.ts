@@ -1,16 +1,29 @@
 // Main tick loop & input dispatch
 import { BoardGrid, Board } from './Board';
-import { GemType } from '../models/Gem';
+import { GemType, Gem } from '../models/Gem';
 import { PRNG } from './PRNG';
 import { GameStateValidator, GameStatus } from './GameStateValidator';
 import { InputAction } from '../../input/InputManager';
+
+export type PieceRotation = 0 | 90 | 180 | 270;
+
+export interface ActivePiece {
+  /** The two gems falling together [PivotGem, PartnerGem] */
+  gems: [Gem, Gem];
+  /** The row index of the pivot gem */
+  row: number;
+  /** The column index of the pivot gem */
+  column: number;
+  /** Current rotation state. 0 = Partner is ABOVE Pivot. */
+  rotation: PieceRotation;
+}
 
 export interface GameState {
   grid: BoardGrid;
   status: GameStatus;
   score: number;
   tickCount: number;
-  // TODO: Add active falling piece state
+  activePiece: ActivePiece | null;
 }
 
 /**
