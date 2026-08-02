@@ -7,13 +7,22 @@ export class ChainResolver {
     let gemsShattered = 0;
     const powerGemIdsShattered = new Set<string>();
     const gemsToRemove = new Set<string>(); // Store coordinates as "row,col"
+    const countersToThaw = new Set<string>();
 
     // 1. Find all active Crash Gems
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let c = 0; c < BOARD_COLS; c++) {
         const gem = grid[r][c];
         if (gem?.type === GemType.CRASH) {
-          this.floodFillShatter(grid, r, c, gem.color, gemsToRemove, powerGemIdsShattered);
+          this.floodFillShatter(
+            grid,
+            r,
+            c,
+            gem.color,
+            gemsToRemove,
+            countersToThaw,
+            powerGemIdsShattered,
+          );
         }
       }
     }
@@ -25,6 +34,16 @@ export class ChainResolver {
       gemsShattered++;
     });
 
+    // Thaw after shatter traversal so newly normal gems cannot join this same chain.
+    countersToThaw.forEach(coord => {
+      const [r, c] = coord.split(',').map(Number);
+      const gem = grid[r][c];
+      if (gem?.type === GemType.COUNTER) {
+        gem.type = GemType.NORMAL;
+        delete gem.counterValue;
+      }
+    });
+
     return { gemsShattered, powerGemIdsShattered };
   }
 
@@ -34,6 +53,7 @@ export class ChainResolver {
     startC: number,
     targetColor: GemColor,
     gemsToRemove: Set<string>,
+    countersToThaw: Set<string>,
     powerGemIdsShattered: Set<string>
   ) {
     const queue: [number, number][] = [[startR, startC]];
@@ -58,14 +78,40 @@ export class ChainResolver {
       for (const [dr, dc] of directions) {
         const nr = r + dr, nc = c + dc;
         if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
-            // Only propagate through NORMAL gems or the initial CRASH gem
             const nextGem = grid[nr][nc];
-            if (nextGem && nextGem.color === targetColor && nextGem.type === GemType.NORMAL) {
-                queue.push([nr, nc]);
+            if (nextGem?.type === GemType.COUNTER) {
+              countersToThaw.add(`${nr},${nc}`);
+            } else if (
+              nextGem &&
+              nextGem.color === targetColor &&
+              nextGem.type === GemType.NORMAL
+            ) {
+              queue.push([nr, nc]);
             }
         }
       }
     }
+  }
+
+  public static resolveRainbowGem(grid: BoardGrid, row: number, col: number): void {
+    const rainbowGem = grid[row]?.[col];
+    if (!rainbowGem || rainbowGem.type !== GemType.RAINBOW) return;
+
+    const gemBelow = row > 0 ? grid[row - 1]?.[col] : null;
+    if (gemBelow?.type === GemType.NORMAL) {
+      const targetColor = gemBelow.color;
+
+      for (let r = 0; r < grid.length; r++) {
+        for (let c = 0; c < grid[r].length; c++) {
+          if (grid[r][c]?.color === targetColor) {
+            grid[r][c] = null;
+          }
+        }
+      }
+    }
+
+    // A rainbow gem always shatters after resolving its landing effect.
+    grid[row][col] = null;
   }
 
   public static applyGravity(grid: BoardGrid): boolean {

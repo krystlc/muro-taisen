@@ -1,5 +1,6 @@
 // Main tick loop & input dispatch
 import { BoardGrid, Board } from './Board';
+import { GemType } from '../models/Gem';
 import { PRNG } from './PRNG';
 import { GameStateValidator, GameStatus } from './GameStateValidator';
 import { InputAction } from '../../input/InputManager';
@@ -45,7 +46,20 @@ export class GameEngine {
    * To be called when a falling piece locks into place.
    */
   public static decrementCounters(grid: BoardGrid): void {
-    // TODO: Implement based on CounterGem.test.ts specifications
+    for (const row of grid) {
+      for (const gem of row) {
+        if (gem?.type !== GemType.COUNTER) continue;
+
+        const nextCounterValue = (gem.counterValue ?? 1) - 1;
+
+        if (nextCounterValue <= 0) {
+          gem.type = GemType.NORMAL;
+          delete gem.counterValue;
+        } else {
+          gem.counterValue = nextCounterValue;
+        }
+      }
+    }
   }
 
   /**
