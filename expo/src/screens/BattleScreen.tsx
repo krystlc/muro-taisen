@@ -7,6 +7,7 @@ import { GameButton, ScreenShell, VersusBar, gameColors } from '../components/ga
 import { BOARD_COLS, BOARD_ROWS } from '../core/engine/Board';
 import { GameEngine, GameState } from '../core/engine/GameEngine';
 import { useGameStore } from '../store/useGameStore';
+import { InputController } from '@/input/InputController';
 
 export default function BattleScreen() {
   const router = useRouter();
@@ -102,45 +103,46 @@ export default function BattleScreen() {
     >
       <StatusBar style="light" />
       <VersusBar player1Name={player1.name} player2Name={player2.name} />
+      <InputController engineRef={engineRef} enabled={phase === 'FIGHT'}>
+        <View style={styles.arena}>
+          {phase !== 'FIGHT' ? (
+            <View style={styles.centered}>
+              <Text style={styles.countdownText}>{phase}</Text>
+            </View>
+          ) : (
+            <View style={styles.boardContainer}>
+              {/* Render rows from top (BOARD_ROWS - 1) down to 0 */}
+              {displayGrid.slice().reverse().map((row, rIndex) => {
+                const actualRowIndex = BOARD_ROWS - 1 - rIndex;
+                return (
+                  <View key={`row-${actualRowIndex}`} style={styles.row}>
+                    {row.map((gem, cIndex) => (
+                      <View
+                        key={`cell-${actualRowIndex}-${cIndex}`}
+                        style={[
+                          styles.cell,
+                          gem ? { backgroundColor: getGemColor(gem.color) } : null,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                );
+              })}
 
-      <View style={styles.arena}>
-        {phase !== 'FIGHT' ? (
-          <View style={styles.centered}>
-            <Text style={styles.countdownText}>{phase}</Text>
-          </View>
-        ) : (
-          <View style={styles.boardContainer}>
-            {/* Render rows from top (BOARD_ROWS - 1) down to 0 */}
-            {displayGrid.slice().reverse().map((row, rIndex) => {
-              const actualRowIndex = BOARD_ROWS - 1 - rIndex;
-              return (
-                <View key={`row-${actualRowIndex}`} style={styles.row}>
-                  {row.map((gem, cIndex) => (
-                    <View
-                      key={`cell-${actualRowIndex}-${cIndex}`}
-                      style={[
-                        styles.cell,
-                        gem ? { backgroundColor: getGemColor(gem.color) } : null,
-                      ]}
-                    />
-                  ))}
+              {gameState.status === 'GAME_OVER' && (
+                <View style={styles.gameOverOverlay}>
+                  <Text style={styles.gameOverText}>GAME OVER</Text>
+                  <GameButton
+                    label="Play Again"
+                    onPress={handlePlayAgain}
+                    variant="primary"
+                  />
                 </View>
-              );
-            })}
-
-            {gameState.status === 'GAME_OVER' && (
-              <View style={styles.gameOverOverlay}>
-                <Text style={styles.gameOverText}>GAME OVER</Text>
-                <GameButton
-                  label="Play Again"
-                  onPress={handlePlayAgain}
-                  variant="primary"
-                />
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+              )}
+            </View>
+          )}
+        </View>
+      </InputController>
 
       <GameButton
         label="SURRENDER"
