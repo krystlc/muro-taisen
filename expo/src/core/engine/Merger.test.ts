@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { Merger, BoardGrid, BOARD_ROWS, BOARD_COLS } from './Merger';
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
 import { GemColor, GemType } from '../models/Gem';
+import { Merger } from './Merger';
 
 function createEmptyGrid(): BoardGrid {
   return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));

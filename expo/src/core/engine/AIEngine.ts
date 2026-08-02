@@ -1,5 +1,5 @@
 import { Gem, GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Merger';
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
 
 export interface Move {
   column: number;

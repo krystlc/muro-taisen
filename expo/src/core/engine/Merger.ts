@@ -1,11 +1,5 @@
-// $2x2, $2x3 Power Gem merge detection
-// src/core/engine/Merger.ts
-import { Gem, GemType } from '../models/Gem';
-
-export const BOARD_COLS = 6;
-export const BOARD_ROWS = 12;
-
-export type BoardGrid = (Gem | null)[][];
+import { GemType } from '../models/Gem';
+import { BOARD_COLS, BOARD_ROWS, BoardGrid } from './Board';
 
 export class Merger {
   /**

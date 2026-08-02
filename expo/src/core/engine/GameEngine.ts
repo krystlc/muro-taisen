@@ -4,6 +4,9 @@ import { Gem, GemColor, GemType } from '../models/Gem';
 import { PRNG } from './PRNG';
 import { GameStateValidator, GameStatus } from './GameStateValidator';
 import { InputAction } from '../../input/InputManager';
+import { Merger } from './Merger';
+import { ChainResolver } from './ChainResolver';
+import { GameLogger } from './GameLogger';
 
 export type PieceRotation = 0 | 90 | 180 | 270;
 
@@ -79,12 +82,13 @@ export class GameEngine {
     }
   }
 
-  /**
-   * The main game loop. Advances physics, processes input, resolves chains, and checks win states.
-   * @param deltaMs The time elapsed since the last tick (used for gravity timing)
-   */
   public tick(deltaMs: number): void {
-    if (this.state.status === 'GAME_OVER') return;
+    // Check game-over condition at the very start of every tick
+    this.state.status = GameStateValidator.checkStatus(this.state.grid);
+    if (this.state.status === 'GAME_OVER') {
+      this.state.activePiece = null;
+      return;
+    }
 
     this.state.tickCount++;
 
@@ -133,7 +137,9 @@ export class GameEngine {
         { id: `piece-${pieceId}-pivot`, color: pivotColor, type: GemType.NORMAL },
         { id: `piece-${pieceId}-partner`, color: partnerColor, type: GemType.NORMAL },
       ],
-      row: BOARD_ROWS - 2,
+      // Spawn lower down if row 12 is reserved as the hidden overflow ceiling,
+      // or set pivot to BOARD_ROWS - 3 so partner sits at BOARD_ROWS - 2 cleanly.
+      row: BOARD_ROWS - 3,
       column: SPAWN_COLUMN,
       rotation: 0,
     };
@@ -217,35 +223,49 @@ export class GameEngine {
     return this.lockPiece();
   }
 
+
   private lockPiece(): boolean {
-      const piece = this.state.activePiece;
-      if (!piece || !this.canPlacePiece(piece)) return false;
+    const piece = this.state.activePiece;
+    if (!piece || !this.canPlacePiece(piece)) return false;
 
-      const coordinates = this.getPieceCoordinates(piece);
-      coordinates.forEach(([row, column], index) => {
-        this.state.grid[row][column] = piece.gems[index];
-      });
+    const coordinates = this.getPieceCoordinates(piece);
+    coordinates.forEach(([row, column], index) => {
+      this.state.grid[row][column] = piece.gems[index];
+    });
 
-      GameEngine.decrementCounters(this.state.grid);
-      this.state.status = GameStateValidator.checkStatus(this.state.grid);
+    // 1. Apply column gravity so unsupported/dangling gems drop independently per column
+    let moved = true;
+    while (moved) {
+      moved = ChainResolver.applyGravity(this.state.grid);
+    }
 
-      // If game is over, keep activePiece null
-      if (this.state.status === 'GAME_OVER') {
-        this.state.activePiece = null;
-        return true;
-      }
+    // 2. Detect and merge any 2x2 or larger rectangular blocks into Power Gems
+    Merger.detectAndMergePowerGems(this.state.grid);
 
-      // Spawn the next piece immediately upon locking the current one!
-      this.state.activePiece = this.createPiece();
+    // 3. Resolve any resulting matches, chains, and score updates
+    const chainResult = ChainResolver.resolveStep(this.state.grid);
+    GameLogger.logState('Resolve any resulting matches, chains, and score updates', this.state.grid, chainResult);
 
-      // If the newly created piece cannot even be placed, it's a game over
-      if (!this.canPlacePiece(this.state.activePiece)) {
-        this.state.status = 'GAME_OVER';
-        this.state.activePiece = null;
-      }
+    // 4. Decrement counters and validate final board status
+    GameEngine.decrementCounters(this.state.grid);
+    this.state.status = GameStateValidator.checkStatus(this.state.grid);
 
+    if (this.state.status === 'GAME_OVER') {
+      this.state.activePiece = null;
       return true;
     }
+
+    // 5. Pre-check spawn validity before instantiating the next piece
+    const nextPiece = this.createPiece();
+    if (!this.canPlacePiece(nextPiece)) {
+      this.state.status = 'GAME_OVER';
+      this.state.activePiece = null;
+    } else {
+      this.state.activePiece = nextPiece;
+    }
+
+    return true;
+  }
 
   /**
    * Returns a snapshot of the current state for the rendering layer.

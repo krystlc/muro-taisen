@@ -1,7 +1,7 @@
 // src/core/engine/CounterGem.test.ts
 import { describe, it, expect } from 'vitest';
 import { GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Merger';
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
 import { ChainResolver } from './ChainResolver';
 import { GameEngine } from './GameEngine';
 

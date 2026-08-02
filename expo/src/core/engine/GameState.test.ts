@@ -1,8 +1,8 @@
 // src/core/engine/GameState.test.ts
 import { describe, it, expect } from 'vitest';
 import { GameStateValidator } from './GameStateValidator';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Merger';
 import { GemColor, GemType } from '../models/Gem';
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
 
 function createEmptyGrid(): BoardGrid {
   return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));

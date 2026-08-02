@@ -18,8 +18,8 @@ export interface Gem {
   id: string;
   color: GemColor;
   type: GemType;
-  counterValue?: number; // For COUNTER type (e.g. 5 to 0)
-  powerGemId?: string;   // Group ID if part of a merged Power Gem
-  powerWidth?: number;   // Width if anchor of Power Gem
-  powerHeight?: number;  // Height if anchor of Power Gem
+  counterValue?: number; // > 0 means frozen with countdown; undefined or <= 0 means thawed/normal
+  powerGemId?: string;
+  powerWidth?: number;
+  powerHeight?: number;
 }
