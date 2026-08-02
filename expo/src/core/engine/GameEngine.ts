@@ -1,6 +1,6 @@
 // Main tick loop & input dispatch
-import { BoardGrid, Board } from './Board';
-import { GemType, Gem } from '../models/Gem';
+import { BOARD_COLS, BOARD_ROWS, BoardGrid, Board, SPAWN_COLUMN } from './Board';
+import { Gem, GemColor, GemType } from '../models/Gem';
 import { PRNG } from './PRNG';
 import { GameStateValidator, GameStatus } from './GameStateValidator';
 import { InputAction } from '../../input/InputManager';
@@ -36,6 +36,9 @@ export class GameEngine {
   private state: GameState;
   private prng: PRNG;
   private pendingInputs: InputAction[] = [];
+  private gravityAccumulatorMs = 0;
+  private pieceSequence = 0;
+  private readonly gravityIntervalMs = 500;
 
   constructor(seed: string) {
     this.prng = new PRNG(seed);
@@ -44,6 +47,7 @@ export class GameEngine {
       status: 'PLAYING',
       score: 0,
       tickCount: 0,
+      activePiece: this.createPiece(),
     };
   }
 
@@ -84,15 +88,148 @@ export class GameEngine {
 
     this.state.tickCount++;
 
-    // 1. Process pendingInputs (Move/Rotate active piece)
-    // 2. Apply gravity to active piece based on deltaMs
-    // 3. If piece locks:
-    //    a. Check for Game Over (GameStateValidator)
-    //    b. Trigger ChainResolver.resolveStep()
-    //    c. Decrement garbage counters (decrementCounters)
-    //    d. Spawn new piece via PRNG
+    if (!this.state.activePiece) {
+      this.pendingInputs = [];
+      return;
+    }
 
-    this.pendingInputs = []; // Clear queue after processing
+    let locked = false;
+    for (const action of this.pendingInputs) {
+      if (action === 'MOVE_LEFT') {
+        this.tryMove(-1);
+      } else if (action === 'MOVE_RIGHT') {
+        this.tryMove(1);
+      } else if (action === 'ROTATE_CW') {
+        this.tryRotate(90);
+      } else if (action === 'ROTATE_CCW') {
+        this.tryRotate(-90);
+      } else if (action === 'SOFT_DROP') {
+        if (!this.tryMoveDown()) locked = this.lockPiece();
+      } else if (action === 'HARD_DROP') {
+        locked = this.hardDrop();
+      }
+
+      if (locked) break;
+    }
+    this.pendingInputs = [];
+
+    if (locked || !this.state.activePiece) return;
+
+    this.gravityAccumulatorMs += Math.max(0, deltaMs);
+    while (this.gravityAccumulatorMs >= this.gravityIntervalMs && this.state.activePiece) {
+      this.gravityAccumulatorMs -= this.gravityIntervalMs;
+      if (!this.tryMoveDown()) this.lockPiece();
+    }
+  }
+
+  private createPiece(): ActivePiece {
+    const colors = [GemColor.RED, GemColor.BLUE, GemColor.YELLOW, GemColor.GREEN];
+    const pivotColor = colors[this.prng.nextInt(0, colors.length)];
+    const partnerColor = colors[this.prng.nextInt(0, colors.length)];
+    const pieceId = this.pieceSequence++;
+
+    return {
+      gems: [
+        { id: `piece-${pieceId}-pivot`, color: pivotColor, type: GemType.NORMAL },
+        { id: `piece-${pieceId}-partner`, color: partnerColor, type: GemType.NORMAL },
+      ],
+      row: BOARD_ROWS - 2,
+      column: SPAWN_COLUMN,
+      rotation: 0,
+    };
+  }
+
+  private getPieceCoordinates(
+    piece: ActivePiece,
+    row = piece.row,
+    column = piece.column,
+    rotation = piece.rotation,
+  ): [[number, number], [number, number]] {
+    const partnerOffset: Record<PieceRotation, [number, number]> = {
+      0: [1, 0],
+      90: [0, 1],
+      180: [-1, 0],
+      270: [0, -1],
+    };
+    const [rowOffset, columnOffset] = partnerOffset[rotation];
+
+    return [
+      [row, column],
+      [row + rowOffset, column + columnOffset],
+    ];
+  }
+
+  private canPlacePiece(
+    piece: ActivePiece,
+    row = piece.row,
+    column = piece.column,
+    rotation = piece.rotation,
+  ): boolean {
+    return this.getPieceCoordinates(piece, row, column, rotation).every(([gemRow, gemColumn]) => {
+      return (
+        gemRow >= 0 &&
+        gemRow < BOARD_ROWS &&
+        gemColumn >= 0 &&
+        gemColumn < BOARD_COLS &&
+        this.state.grid[gemRow][gemColumn] === null
+      );
+    });
+  }
+
+  private tryMove(columnDelta: number): boolean {
+    const piece = this.state.activePiece;
+    if (!piece || !this.canPlacePiece(piece, piece.row, piece.column + columnDelta)) return false;
+
+    piece.column += columnDelta;
+    return true;
+  }
+
+  private tryMoveDown(): boolean {
+    const piece = this.state.activePiece;
+    if (!piece || !this.canPlacePiece(piece, piece.row - 1)) return false;
+
+    piece.row -= 1;
+    return true;
+  }
+
+  private tryRotate(rotationDelta: number): boolean {
+    const piece = this.state.activePiece;
+    if (!piece) return false;
+
+    const rotations: PieceRotation[] = [0, 90, 180, 270];
+    const currentIndex = rotations.indexOf(piece.rotation);
+    const nextIndex = (currentIndex + (rotationDelta > 0 ? 1 : -1) + rotations.length) % rotations.length;
+    const nextRotation = rotations[nextIndex];
+
+    if (!this.canPlacePiece(piece, piece.row, piece.column, nextRotation)) return false;
+
+    piece.rotation = nextRotation;
+    return true;
+  }
+
+  private hardDrop(): boolean {
+    const piece = this.state.activePiece;
+    if (!piece) return false;
+
+    while (this.tryMoveDown()) {
+      // Continue until the next row would collide with the floor or board.
+    }
+    return this.lockPiece();
+  }
+
+  private lockPiece(): boolean {
+    const piece = this.state.activePiece;
+    if (!piece || !this.canPlacePiece(piece)) return false;
+
+    const coordinates = this.getPieceCoordinates(piece);
+    coordinates.forEach(([row, column], index) => {
+      this.state.grid[row][column] = piece.gems[index];
+    });
+
+    this.state.activePiece = null;
+    GameEngine.decrementCounters(this.state.grid);
+    this.state.status = GameStateValidator.checkStatus(this.state.grid);
+    return true;
   }
 
   /**

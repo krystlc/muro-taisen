@@ -10,7 +10,8 @@ export class PRNG {
   private seed: number;
 
   constructor(seedString: string) {
-    this.seed = this.hashString(seedString);
+    const hashedSeed = this.hashString(seedString) % 2147483647;
+    this.seed = hashedSeed > 0 ? hashedSeed : 1;
   }
 
   // Simple string hasher to generate initial integer seed
@@ -29,8 +30,9 @@ export class PRNG {
    * Implement a standard LCG (Linear Congruential Generator) or PCG algorithm here.
    */
   public nextFloat(): number {
-    // TODO: Implement LCG math (e.g., seed = (a * seed + c) % m)
-    return 0;
+    // Park–Miller LCG. The multiplication stays within JavaScript's safe integer range.
+    this.seed = (this.seed * 16807) % 2147483647;
+    return (this.seed - 1) / 2147483646;
   }
 
   /**
