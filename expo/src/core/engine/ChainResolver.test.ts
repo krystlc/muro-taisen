@@ -1,16 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { ChainResolver } from './ChainResolver';
 import { Gem, GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS, Board } from './Board';
-import { GameLogger } from './GameLogger';
-
-function createEmptyGrid(): BoardGrid {
-  return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
-}
+import { Board } from './Board';
 
 describe('Chain Resolver Engine', () => {
   it('should shatter adjacent normal gems of the same color when a Crash Gem detonates', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Setup: Blue Normal gem at bottom left, Blue Crash gem lands on top of it
     grid[0][0] = { id: '1', color: GemColor.BLUE, type: GemType.NORMAL };
@@ -24,7 +19,7 @@ describe('Chain Resolver Engine', () => {
   });
 
   it('should shatter an entire Power Gem if any part of it is touched by a matching Crash Gem', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Setup: 2x2 Red Power Gem with a Red Crash Gem adjacent to it
     const powerId = 'red_power_1';
@@ -42,7 +37,7 @@ describe('Chain Resolver Engine', () => {
   });
 
   it('should apply gravity to unsupported gems after a shatter', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Setup: Blue Crash destroys Blue Normal, leaving a floating Yellow gem
     grid[0][0] = { id: '1', color: GemColor.BLUE, type: GemType.NORMAL };

@@ -2,17 +2,13 @@
 import { describe, it, expect } from 'vitest';
 import { GameStateValidator } from './GameStateValidator';
 import { GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
-
-function createEmptyGrid(): BoardGrid {
-  return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
-}
+import { Board, BOARD_COLS } from './Board';
 
 describe('Game State & Overflow Validation', () => {
   const SPAWN_COLUMN = 3; // 4th column from the left (0-indexed)
 
   it('should trigger GAME_OVER if the spawn column reaches the top boundary', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Fill the spawn column up to the top visible row (Row 11)
     grid[11][SPAWN_COLUMN] = { id: 'death', color: GemColor.RED, type: GemType.NORMAL };
@@ -22,7 +18,7 @@ describe('Game State & Overflow Validation', () => {
   });
 
   it('should remain PLAYING if non-spawn columns overflow past the top row', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Fill a side column past the visible boundary (Row 12 / Hidden Row)
     // Most puzzle fighters allow side columns to overflow into hidden rows without dying

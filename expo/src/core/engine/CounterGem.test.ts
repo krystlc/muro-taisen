@@ -1,17 +1,13 @@
 // src/core/engine/CounterGem.test.ts
 import { describe, it, expect } from 'vitest';
 import { GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
+import { Board } from './Board';
 import { ChainResolver } from './ChainResolver';
 import { GameEngine } from './GameEngine';
 
-function createEmptyGrid(): BoardGrid {
-  return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
-}
-
 describe('Counter Gem (Garbage) Mechanics', () => {
   it('should decrement the counterValue of all Counter Gems by 1 at the end of a turn cycle', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
     grid[0][0] = { id: 'c1', color: GemColor.RED, type: GemType.COUNTER, counterValue: 5 };
     grid[1][0] = { id: 'c2', color: GemColor.BLUE, type: GemType.COUNTER, counterValue: 2 };
 
@@ -22,7 +18,7 @@ describe('Counter Gem (Garbage) Mechanics', () => {
   });
 
   it('should transform a Counter Gem into a Normal Gem when its counterValue decrements down to 0', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
     grid[0][0] = { id: 'c1', color: GemColor.GREEN, type: GemType.COUNTER, counterValue: 1 };
 
     GameEngine.decrementCounters(grid);
@@ -33,7 +29,7 @@ describe('Counter Gem (Garbage) Mechanics', () => {
   });
 
   it('should immediately thaw an adjacent Counter Gem during a crash explosion regardless of its counter value', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Setup: Blue normal & Crash pair, adjacent to a Yellow Counter Gem with a high timer (5)
     grid[0][0] = { id: '1', color: GemColor.BLUE, type: GemType.NORMAL };
@@ -53,7 +49,7 @@ describe('Counter Gem (Garbage) Mechanics', () => {
   });
 
   it('should allow a newly thawed counter gem to survive the current explosion tick without self-destructing', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Setup: Red Crash detonates Red Normal. Adjacent is a Red Counter Gem.
     grid[0][0] = { id: '1', color: GemColor.RED, type: GemType.NORMAL };

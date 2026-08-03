@@ -1,15 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { AIEngine } from './AIEngine';
 import { GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
-
-function createEmptyGrid(): BoardGrid {
-  return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
-}
+import { Board } from './Board';
 
 describe('AI Heuristic Engine', () => {
   it('should heavily penalize dropping pieces in columns close to the ceiling', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Fill column 0 almost to the top
     for(let r = 0; r < 10; r++) {
@@ -28,7 +24,7 @@ describe('AI Heuristic Engine', () => {
   });
 
   it('should prioritize placing a Crash Gem adjacent to a massive block of the same color', () => {
-    const grid = createEmptyGrid();
+    const grid = Board.createEmptyGrid();
 
     // Build a nice blue structure in column 2
     grid[0][2] = { id: 'b1', color: GemColor.BLUE, type: GemType.NORMAL };
