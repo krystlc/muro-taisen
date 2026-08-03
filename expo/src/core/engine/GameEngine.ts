@@ -263,13 +263,13 @@ export class GameEngine {
 
       // 3. Resolve matches and score updates
       const chainResult = ChainResolver.resolveStep(this.state.grid);
-      GameLogger.logState('Resolve any resulting matches, chains, and score updates', this.state.grid, chainResult);
 
       // 4. If gems were destroyed, we must loop again to drop the blocks above the gaps!
       if (chainResult.gemsShattered === 0) {
         isChaining = false;
       } else {
         // Optional: Increment this.state.score here based on chain combo multiplier!
+        this.state.score += chainResult.gemsShattered
       }
     }
 
