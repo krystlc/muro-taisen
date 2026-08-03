@@ -1,5 +1,5 @@
 // src/core/engine/ChainResolver.ts
-import { Gem, GemColor, GemType } from '../models/Gem';
+import { Gem, GemType } from '../models/Gem';
 import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
 
 export class ChainResolver {
@@ -47,8 +47,9 @@ export class ChainResolver {
               const neighborKey = `${nr},${nc}`;
               const neighborGem = grid[nr][nc];
 
+              // FIX 1: Don't thaw here. COUNTER gems block color flow completely.
               if (neighborGem?.type === GemType.COUNTER) {
-                countersToThaw.add(neighborKey);
+                continue;
               } else if (
                 neighborGem &&
                 neighborGem.color === currGem.color &&
@@ -64,16 +65,32 @@ export class ChainResolver {
         // Mark all nodes in this cluster as globally visited
         visitedCluster.forEach(k => visitedGlobal.add(k));
 
-        // PUZZLE FIGHTER RULE:
         // A cluster ONLY explodes if it contains AT LEAST ONE Crash Gem AND AT LEAST ONE Normal Gem of that color!
-        // (A lone crash gem with no normal matches will have hasNormalGem === false and will not detonate).
         if (hasCrashGem && hasNormalGem) {
           cluster.forEach(item => gemsToRemove.add(`${item.r},${item.c}`));
+
+          // FIX 2: Only thaw adjacent counters if an actual explosion is triggered
+          cluster.forEach(curr => {
+            // Check 4-directional neighbors
+            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+            for (const [dr, dc] of directions) {
+              const nr = curr.r + dr;
+              const nc = curr.c + dc;
+              if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
+                const neighborKey = `${nr},${nc}`;
+                const neighborGem = grid[nr][nc];
+
+                if (neighborGem?.type === GemType.COUNTER) {
+                  countersToThaw.add(neighborKey);
+                }
+              }
+            }
+          });
         }
       }
     }
 
-    // Expand power gem group deletions / side propagations
+    // Expand power gem group deletions only (removed incorrect counter-thawing side-effect)
     let expansionOccurred = true;
     while (expansionOccurred) {
       expansionOccurred = false;
@@ -95,19 +112,6 @@ export class ChainResolver {
                   expansionOccurred = true;
                 }
               }
-            }
-          }
-        }
-
-        // Side-connection propagation for counters or adjacent matching colors
-        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-        for (const [dr, dc] of directions) {
-          const nr = r + dr, nc = c + dc;
-          if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
-            const neighbor = grid[nr][nc];
-            const neighborKey = `${nr},${nc}`;
-            if (neighbor?.type === GemType.COUNTER) {
-              countersToThaw.add(neighborKey);
             }
           }
         }
