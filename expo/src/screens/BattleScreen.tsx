@@ -1,14 +1,15 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ImageBackground } from 'react-native';
 
-import { GameButton, ScreenShell, VersusBar, gameColors } from '../components/game-ui';
+import { GameButton, ScreenShell, VersusBar } from '../components/game-ui';
 import { BOARD_COLS, BOARD_ROWS } from '../core/engine/Board';
 import { GameEngine, GameState } from '../core/engine/GameEngine';
 import { useGameStore } from '../store/useGameStore';
 import { InputController } from '@/input/InputController';
-import { GemType } from '@/core/models/Gem';
+
+import { NextPiecePanel, MainBoard, OpponentMiniBoard } from '@/rendering/components/BattleComponents';
 
 export default function BattleScreen() {
   const router = useRouter();
@@ -22,53 +23,40 @@ export default function BattleScreen() {
 
   useEffect(() => {
     const sequence = async () => {
-      await new Promise((r) => setTimeout(r, 600));
-      setPhase('3');
-      await new Promise((r) => setTimeout(r, 600));
-      setPhase('2');
-      await new Promise((r) => setTimeout(r, 600));
-      setPhase('1');
-      await new Promise((r) => setTimeout(r, 600));
-      setPhase('FIGHT');
+      await new Promise((r) => setTimeout(r, 600)); setPhase('3');
+      await new Promise((r) => setTimeout(r, 600)); setPhase('2');
+      await new Promise((r) => setTimeout(r, 600)); setPhase('1');
+      await new Promise((r) => setTimeout(r, 600)); setPhase('FIGHT');
     };
     sequence();
   }, []);
 
   useEffect(() => {
     if (phase !== 'FIGHT') return;
-
     let lastTime = Date.now();
-
     const interval = setInterval(() => {
       const now = Date.now();
       const deltaMs = now - lastTime;
       lastTime = now;
 
-      // Pass actual elapsed time to the engine so gravity accumulates correctly
       engineRef.current.tick(Math.min(deltaMs, 200));
       const currentState = engineRef.current.getState();
       setGameState({ ...currentState });
 
-      if (currentState.status === 'GAME_OVER') {
-        clearInterval(interval);
-      }
-    }, 50); // Tick 20 times a second for smooth physics processing
+      if (currentState.status === 'GAME_OVER') clearInterval(interval);
+    }, 50);
 
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Build a composite view of the grid + active piece for rendering
+  // Build composite view
   const displayGrid = gameState.grid.map((row) => [...row]);
   const activePiece = gameState.activePiece;
 
   if (activePiece) {
     const [pivotRow, pivotCol] = [activePiece.row, activePiece.column];
-    // Simple offset mapping for partner based on rotation
     const offsets: Record<number, [number, number]> = {
-      0: [1, 0],
-      90: [0, 1],
-      180: [-1, 0],
-      270: [0, -1],
+      0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1],
     };
     const [rOff, cOff] = offsets[activePiece.rotation] || [1, 0];
     const partnerRow = pivotRow + rOff;
@@ -83,127 +71,100 @@ export default function BattleScreen() {
   }
 
   const handlePlayAgain = () => {
-    // Reset phase first to clear and re-trigger the fight sequence/interval cleanly
     setPhase('READY');
     engineRef.current = new GameEngine(`match_seed_${Date.now()}`);
     setGameState(engineRef.current.getState());
 
-    // Short delay to restart the fight phase
     setTimeout(() => {
       setPhase('FIGHT');
     }, 100);
   };
 
+  // Mocking opponent grid until multiplayer engine is connected
+  const mockOpponentGrid = Array(BOARD_ROWS).fill(Array(BOARD_COLS).fill(null));
+
   return (
-    <ScreenShell
-      eyebrow="ROUND 01 // FIGHT"
-      onBack={() => router.back()}
-      subtitle={`Good luck. ${difficulty} difficulty.`}
-      title="Battle"
-    >
+    <View style={styles.container}>
       <StatusBar style="light" />
-      <VersusBar player1Name={player1.name} player2Name={player2.name} />
+
+      {/* TOP HALF: 3D FIGHTER ARENA PLACEHOLDER */}
+      <View style={styles.fighterArena}>
+        <Text style={styles.placeholderText}>[ 3D Fighter Graphics ]</Text>
+      </View>
+
+      {/* HUD DIVIDER */}
+      <View style={styles.hudBar}>
+        <VersusBar player1Name={player1.name} player2Name={player2.name} />
+      </View>
+
+      {/* BOTTOM HALF: PUZZLE AREA */}
       <InputController engineRef={engineRef} enabled={phase === 'FIGHT'}>
-        <View style={styles.arena}>
+        <View style={styles.puzzleArea}>
+
           {phase !== 'FIGHT' ? (
             <View style={styles.centered}>
               <Text style={styles.countdownText}>{phase}</Text>
             </View>
           ) : (
-            <View style={styles.boardContainer}>
+            <>
+              <NextPiecePanel nextPiece={gameState.activePiece} />
+              <MainBoard displayGrid={displayGrid} />
+              <OpponentMiniBoard opponentGrid={mockOpponentGrid} />
+            </>
+          )}
 
-              {displayGrid.slice().reverse().map((row, rIndex) => {
-                const actualRowIndex = BOARD_ROWS - 1 - rIndex;
-                return (
-                  <View key={`row-${actualRowIndex}`} style={styles.row}>
-                    {row.map((gem, cIndex) => {
-                      if (!gem) {
-                        return <View key={`cell-${actualRowIndex}-${cIndex}`} style={styles.cell} />;
-                      }
-
-                      // Strict deterministic state checks
-                      const isFrozen = gem.type === GemType.COUNTER;
-                      const isExploding = gem.type === GemType.CRASH;
-                      const isPowerGem = !!gem.powerGemId && !isFrozen;
-
-                      return (
-                        <View
-                          key={`cell-${actualRowIndex}-${cIndex}`}
-                          style={[
-                            styles.cell,
-                            { backgroundColor: getGemColor(gem.color) },
-                            isExploding && styles.explodingCell,
-                            isFrozen && styles.frozenCell,
-                            isPowerGem && styles.powerGemCell,
-                          ]}
-                        >
-                          {isFrozen && (
-                            <View style={styles.counterBadge}>
-                              {/* Strictly render the engine's counterValue */}
-                              <Text style={styles.counterText}>{gem.counterValue}</Text>
-                            </View>
-                          )}
-
-                          {isPowerGem && (
-                            <View style={styles.powerGemCore} />
-                          )}
-
-                          {isExploding && (
-                            <View style={styles.explodingCore} />
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                );
-              })}
-
-              {gameState.status === 'GAME_OVER' && (
-                <View style={styles.gameOverOverlay}>
-                  <Text style={styles.gameOverText}>GAME OVER</Text>
-                  <GameButton
-                    label="Play Again"
-                    onPress={handlePlayAgain}
-                    variant="primary"
-                  />
-                </View>
-              )}
+          {gameState.status === 'GAME_OVER' && (
+            <View style={styles.gameOverOverlay}>
+              <Text style={styles.gameOverText}>GAME OVER</Text>
+              <GameButton label="Play Again" onPress={handlePlayAgain} variant="primary" />
             </View>
           )}
+
         </View>
       </InputController>
-
-      <GameButton
-        label="SURRENDER"
-        onPress={() => router.replace('/start')}
-        variant="secondary"
-      />
-    </ScreenShell>
+    </View>
   );
 }
 
-function getGemColor(colorStr: string): string {
-  const colors: Record<string, string> = {
-    RED: '#ff3366',
-    BLUE: '#00e5ff',
-    GREEN: '#00ff66',
-    YELLOW: '#ffcc00',
-  };
-  return colors[colorStr] || '#334155';
-}
-
 const styles = StyleSheet.create({
-  arena: {
+  container: {
+    flex: 1,
     backgroundColor: '#0c1220',
-    borderColor: '#273449',
-    borderRadius: 18,
-    borderWidth: 1,
-    height: 460,
-    marginHorizontal: 16,
-    marginVertical: 18,
-    overflow: 'hidden',
+  },
+  fighterArena: {
+    flex: 0.4, // Slightly reduced to give more room for puzzle
+    backgroundColor: '#1a2235',
     justifyContent: 'center',
     alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#000',
+  },
+  placeholderText: {
+    color: '#475569',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  hudBar: {
+    flex: 0.1,
+    zIndex: 10,
+    justifyContent: 'center',
+  },
+  puzzleArea: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    backgroundColor: '#0f1626',
+    overflow: 'hidden', // Ensure no overflow
+  },
+  // Main board container needs to be tightly constrained
+  mainBoardContainer: {
+    flex: 1, // Stretch as much as possible
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 4,
+    paddingBottom: 10,
+    overflow: 'hidden',
   },
   centered: {
     flex: 1,
@@ -212,92 +173,22 @@ const styles = StyleSheet.create({
   },
   countdownText: {
     color: '#00e5ff',
-    fontSize: 48,
+    fontSize: 64,
     fontWeight: 'bold',
-    letterSpacing: 2,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowRadius: 10,
   },
-  boardContainer: {
-    flex: 1,
-    width: '100%',
-    padding: 8,
-    justifyContent: 'center',
-  },
-  row: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-
-  cell: {
-    flex: 1,
-    margin: 1,
-    backgroundColor: '#131b2e',
-    borderRadius: 3,
-    borderWidth: 0.5,
-    borderColor: '#1e293b',
-    overflow: 'hidden',
-  },
-  explodingCell: {
-    borderRadius: 16, // Forces circular shape for crash blocks
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  explodingCore: {
-    flex: 1,
-    margin: 6,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  frozenCell: {
-    borderColor: '#00e5ff',
-    borderWidth: 2,
-    opacity: 0.85,
-  },
-  counterBadge: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    borderRadius: 2,
-  },
-  counterText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-
   gameOverOverlay: {
-    position: 'absolute',
-    top: '30%',
-    left: 20,
-    right: 20,
-    padding: 24,
-    backgroundColor: 'rgba(12, 18, 32, 0.95)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ff3366',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(12, 18, 32, 0.9)',
+    justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 20,
   },
   gameOverText: {
     color: '#ff3366',
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 16,
-  },
-
-  powerGemCell: {
-    borderColor: '#ffffff',
-    borderWidth: 1.5,
-    shadowColor: '#ffffff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-  },
-  powerGemCore: {
-    flex: 1,
-    margin: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 2,
+    marginBottom: 24,
   },
 });
