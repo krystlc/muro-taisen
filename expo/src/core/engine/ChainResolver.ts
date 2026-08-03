@@ -11,7 +11,6 @@ export class ChainResolver {
 
     const visitedGlobal = new Set<string>();
 
-    // Find all connected clusters on the board
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let c = 0; c < BOARD_COLS; c++) {
         const startKey = `${r},${c}`;
@@ -20,7 +19,6 @@ export class ChainResolver {
         const startGem = grid[r][c];
         if (!startGem || startGem.type === GemType.COUNTER) continue;
 
-        // Traverse the connected component of the same color
         const cluster: Array<{ r: number; c: number; gem: Gem }> = [];
         const queue: Array<{ r: number; c: number }> = [{ r, c }];
         const visitedCluster = new Set<string>();
@@ -38,7 +36,6 @@ export class ChainResolver {
           if (currGem.type === GemType.NORMAL) hasNormalGem = true;
           if (currGem.powerGemId) powerGemIdsShattered.add(currGem.powerGemId);
 
-          // Check 4-directional neighbors
           const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
           for (const [dr, dc] of directions) {
             const nr = curr.r + dr;
@@ -47,7 +44,6 @@ export class ChainResolver {
               const neighborKey = `${nr},${nc}`;
               const neighborGem = grid[nr][nc];
 
-              // FIX 1: Don't thaw here. COUNTER gems block color flow completely.
               if (neighborGem?.type === GemType.COUNTER) {
                 continue;
               } else if (
@@ -62,16 +58,13 @@ export class ChainResolver {
           }
         }
 
-        // Mark all nodes in this cluster as globally visited
         visitedCluster.forEach(k => visitedGlobal.add(k));
 
-        // A cluster ONLY explodes if it contains AT LEAST ONE Crash Gem AND AT LEAST ONE Normal Gem of that color!
         if (hasCrashGem && hasNormalGem) {
           cluster.forEach(item => gemsToRemove.add(`${item.r},${item.c}`));
 
-          // FIX 2: Only thaw adjacent counters if an actual explosion is triggered
+          // ONLY thaw adjacent counters. Do NOT destroy different colored normal gems.
           cluster.forEach(curr => {
-            // Check 4-directional neighbors
             const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
             for (const [dr, dc] of directions) {
               const nr = curr.r + dr;
@@ -90,7 +83,6 @@ export class ChainResolver {
       }
     }
 
-    // Expand power gem group deletions only (removed incorrect counter-thawing side-effect)
     let expansionOccurred = true;
     while (expansionOccurred) {
       expansionOccurred = false;
@@ -100,7 +92,6 @@ export class ChainResolver {
         const [r, c] = coord.split(',').map(Number);
         const gem = grid[r][c];
 
-        // Power gem full group expansion
         if (gem?.powerGemId && !powerGemIdsShattered.has(gem.powerGemId)) {
           powerGemIdsShattered.add(gem.powerGemId);
           for (let pr = 0; pr < BOARD_ROWS; pr++) {
@@ -118,7 +109,6 @@ export class ChainResolver {
       }
     }
 
-    // Remove marked gems
     gemsToRemove.forEach(coord => {
       const [r, c] = coord.split(',').map(Number);
       if (grid[r][c] !== null) {
@@ -127,7 +117,6 @@ export class ChainResolver {
       }
     });
 
-    // Thaw counters
     countersToThaw.forEach(coord => {
       const [r, c] = coord.split(',').map(Number);
       const gem = grid[r][c];
