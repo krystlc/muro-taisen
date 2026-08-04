@@ -80,7 +80,7 @@ export default function BattleScreen() {
         const garbageLines = Math.floor(scoreDiff / 100);
 
         if (garbageLines > 0) {
-          opponentEngine.addGarbage(garbageLines);
+          opponentEngine.queueGarbage(garbageLines);
         }
         lastScoreRef.current = newState.score;
       }

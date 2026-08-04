@@ -43,6 +43,8 @@ export class GameEngine {
   private gravityAccumulatorMs = 0;
   private pieceSequence = 0;
   private readonly gravityIntervalMs = 500;
+  
+  public onAttack?: (count: number) => void;
 
   constructor(seed: string) {
     this.prng = new PRNG(seed);
@@ -65,6 +67,9 @@ export class GameEngine {
 
   public queueGarbage(count: number): void {
     this.state.incomingGarbage += count;
+    if (this.onAttack) {
+      this.onAttack(count);
+    }
   }
 
   public processGarbageQueue(): void {
@@ -296,6 +301,9 @@ export class GameEngine {
     return this.lockPiece();
   }
 
+  public forceLockPiece(): boolean {
+    return this.lockPiece();
+  }
 
   private lockPiece(): boolean {
     const piece = this.state.activePiece;
