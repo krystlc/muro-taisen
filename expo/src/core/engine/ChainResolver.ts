@@ -213,4 +213,16 @@ export class ChainResolver {
 
     return anyMoved;
   }
+
+  public static calculateGarbage(params: { gemsShattered: number; chainNumber: number }): number {
+      const { gemsShattered, chainNumber } = params;
+      if (gemsShattered <= 0) return 0;
+
+      // Base garbage calculation (e.g., roughly 1 garbage per 2-3 gems, or a direct scaling)
+      // Applying a chain bonus multiplier (chainNumber 1 = 1x, chainNumber 2 = 3x, etc.)
+      const baseGarbage = Math.floor(gemsShattered / 2);
+      const chainMultiplier = Math.max(1, chainNumber * 2 - 1);
+
+      return baseGarbage * chainMultiplier;
+    }
 }
