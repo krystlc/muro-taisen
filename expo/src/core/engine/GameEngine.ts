@@ -27,6 +27,7 @@ export interface GameState {
   score: number;
   tickCount: number;
   activePiece: ActivePiece | null;
+  incomingGarbage: number;
 }
 
 /**
@@ -51,6 +52,7 @@ export class GameEngine {
       score: 0,
       tickCount: 0,
       activePiece: this.createPiece(),
+      incomingGarbage: 0,
     };
   }
 
@@ -59,6 +61,31 @@ export class GameEngine {
    */
   public queueInput(action: InputAction) {
     this.pendingInputs.push(action);
+  }
+
+  public queueGarbage(count: number): void {
+    this.state.incomingGarbage += count;
+  }
+
+  public processGarbageQueue(): void {
+    if (this.state.incomingGarbage === 0) return;
+    
+    const count = this.state.incomingGarbage;
+    for (let i = 0; i < count; i++) {
+        const col = this.prng.nextInt(0, BOARD_COLS);
+        for (let r = BOARD_ROWS - 1; r >= 0; r--) {
+          if (this.state.grid[r][col] === null) {
+            this.state.grid[r][col] = {
+              id: `garbage-${this.pieceSequence++}`,
+              color: GemColor.BLUE,
+              type: GemType.COUNTER,
+              counterValue: 3,
+            };
+            break;
+          }
+        }
+    }
+    this.state.incomingGarbage = 0;
   }
 
   /**
@@ -228,6 +255,37 @@ export class GameEngine {
     return true;
   }
 
+  public addGarbage(count: number): void {
+    // Drop garbage gems into the grid starting from the top
+    for (let i = 0; i < count; i++) {
+      const col = this.prng.nextInt(0, BOARD_COLS);
+      // Place at the top-most available row or just at the top
+      for (let r = BOARD_ROWS - 1; r >= 0; r--) {
+        if (this.state.grid[r][col] === null) {
+          this.state.grid[r][col] = {
+            id: `garbage-${this.pieceSequence++}`,
+            color: GemColor.BLUE, // Placeholder color
+            type: GemType.COUNTER,
+            counterValue: 3,
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  public applyMove(move: { column: number; rotation: number }): void {
+    const piece = this.state.activePiece;
+    if (!piece) return;
+
+    // Apply rotation
+    const rotations: PieceRotation[] = [0, 90, 180, 270];
+    piece.rotation = rotations[move.rotation % rotations.length];
+
+    // Apply column
+    piece.column = Math.max(0, Math.min(BOARD_COLS - 1, move.column));
+  }
+
   private hardDrop(): boolean {
     const piece = this.state.activePiece;
     if (!piece) return false;
@@ -275,6 +333,10 @@ export class GameEngine {
 
     // 5. Decrement counters and validate final board status
     GameEngine.decrementCounters(this.state.grid);
+    
+    // Process garbage AFTER lock and chain resolution
+    this.processGarbageQueue();
+
     this.state.status = GameStateValidator.checkStatus(this.state.grid);
 
     if (this.state.status === 'GAME_OVER') {

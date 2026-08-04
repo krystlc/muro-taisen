@@ -8,6 +8,8 @@ import { BOARD_COLS, BOARD_ROWS } from '../core/engine/Board';
 import { GameEngine, GameState } from '../core/engine/GameEngine';
 import { useGameStore } from '../store/useGameStore';
 import { InputController } from '@/input/InputController';
+import { AIOpponent, AIDifficulty } from '@/core/opponent/AIOpponent';
+import { Opponent } from '@/core/opponent/Opponent';
 
 import { NextPiecePanel, MainBoard, OpponentMiniBoard } from '@/rendering/components/BattleComponents';
 
@@ -17,8 +19,32 @@ export default function BattleScreen() {
   const player2 = useGameStore((state) => state.player2);
   const difficulty = useGameStore((state) => state.difficulty);
 
-  const engineRef = useRef(new GameEngine('match_seed_123'));
-  const [gameState, setGameState] = useState<GameState>(() => engineRef.current.getState());
+  const getAIDifficulty = (label: string): AIDifficulty => {
+    switch (label) {
+      case 'MASTER': return 'HARD';
+      case 'TAISEN': return 'MEDIUM';
+      case 'ROOKIE':
+      default: return 'EASY';
+    }
+  };
+
+  const engineRef = useRef<GameEngine | null>(null);
+  const opponentEngineRef = useRef<GameEngine | null>(null);
+  const opponentRef = useRef<Opponent | null>(null);
+
+  if (!engineRef.current) {
+    engineRef.current = new GameEngine('match_seed_123');
+    opponentEngineRef.current = new GameEngine('opponent_seed_456');
+    opponentRef.current = new AIOpponent('ai-1', player2.name, getAIDifficulty(difficulty));
+  }
+
+  // Cast these to non-null for subsequent use, as we know they are initialized
+  const engine = engineRef.current!;
+  const opponentEngine = opponentEngineRef.current!;
+  const opponent = opponentRef.current!;
+
+  const [gameState, setGameState] = useState<GameState>(() => engineRef.current!.getState());
+  const [opponentGameState, setOpponentGameState] = useState<GameState>(() => opponentEngineRef.current!.getState());
   const [phase, setPhase] = useState<'READY' | '3' | '2' | '1' | 'FIGHT'>('READY');
 
   useEffect(() => {
@@ -31,25 +57,65 @@ export default function BattleScreen() {
     sequence();
   }, []);
 
+  const lastScoreRef = useRef(0);
+  const aiThinkingRef = useRef(false);
+
   useEffect(() => {
     if (phase !== 'FIGHT') return;
     let lastTime = Date.now();
+
     const interval = setInterval(() => {
       const now = Date.now();
       const deltaMs = now - lastTime;
       lastTime = now;
 
-      engineRef.current.tick(Math.min(deltaMs, 200));
-      const currentState = engineRef.current.getState();
-      setGameState({ ...currentState });
+      // 1. HUMAN LOGIC
+      engine.tick(deltaMs);
+      const newState = engine.getState();
+      setGameState({ ...newState });
 
-      if (currentState.status === 'GAME_OVER') clearInterval(interval);
+      // Calculate Garbage safely
+      if (newState.score > lastScoreRef.current) {
+        const scoreDiff = newState.score - lastScoreRef.current;
+        const garbageLines = Math.floor(scoreDiff / 100);
+
+        if (garbageLines > 0) {
+          opponentEngine.addGarbage(garbageLines);
+        }
+        lastScoreRef.current = newState.score;
+      }
+
+      // 2. OPPONENT LOGIC
+      const currentAiState = opponentEngine.getState();
+
+      if (currentAiState.activePiece && !aiThinkingRef.current) {
+        aiThinkingRef.current = true;
+
+        opponent.getNextMove(currentAiState.grid, {
+          gem1: currentAiState.activePiece.gems[0],
+          gem2: currentAiState.activePiece.gems[1]
+        }).then(move => {
+          opponentEngine.applyMove(move);
+        }).catch(err => {
+          console.error("AI computation failed", err);
+        }).finally(() => {
+          aiThinkingRef.current = false;
+        });
+      }
+
+      opponentEngine.tick(deltaMs);
+      setOpponentGameState({ ...opponentEngine.getState() });
+
+      // 3. WIN/LOSS CONDITIONS
+      if (newState.status === 'GAME_OVER' || currentAiState.status === 'GAME_OVER') {
+        clearInterval(interval);
+      }
     }, 50);
 
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Build composite view
+  // Build Human Composite View
   const displayGrid = gameState.grid.map((row) => [...row]);
   const activePiece = gameState.activePiece;
 
@@ -70,18 +136,38 @@ export default function BattleScreen() {
     }
   }
 
+  // Build Opponent Composite View
+  const displayOpponentGrid = opponentGameState.grid.map((row) => [...row]);
+  const opActivePiece = opponentGameState.activePiece;
+
+  if (opActivePiece) {
+    const [pivotRow, pivotCol] = [opActivePiece.row, opActivePiece.column];
+    const offsets: Record<number, [number, number]> = {
+      0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1],
+    };
+    const [rOff, cOff] = offsets[opActivePiece.rotation] || [1, 0];
+    const partnerRow = pivotRow + rOff;
+    const partnerCol = pivotCol + cOff;
+
+    if (pivotRow >= 0 && pivotRow < BOARD_ROWS && pivotCol >= 0 && pivotCol < BOARD_COLS) {
+      displayOpponentGrid[pivotRow][pivotCol] = opActivePiece.gems[0];
+    }
+    if (partnerRow >= 0 && partnerRow < BOARD_ROWS && partnerCol >= 0 && partnerCol < BOARD_COLS) {
+      displayOpponentGrid[partnerRow][partnerCol] = opActivePiece.gems[1];
+    }
+  }
+
   const handlePlayAgain = () => {
     setPhase('READY');
     engineRef.current = new GameEngine(`match_seed_${Date.now()}`);
+    opponentEngineRef.current = new GameEngine(`match_seed_${Date.now() + 1}`);
     setGameState(engineRef.current.getState());
+    setOpponentGameState(opponentEngineRef.current.getState());
 
     setTimeout(() => {
       setPhase('FIGHT');
     }, 100);
   };
-
-  // Mocking opponent grid until multiplayer engine is connected
-  const mockOpponentGrid = Array(BOARD_ROWS).fill(Array(BOARD_COLS).fill(null));
 
   return (
     <View style={styles.container}>
@@ -109,7 +195,7 @@ export default function BattleScreen() {
             <>
               <NextPiecePanel nextPiece={gameState.activePiece} />
               <MainBoard displayGrid={displayGrid} />
-              <OpponentMiniBoard opponentGrid={mockOpponentGrid} />
+              <OpponentMiniBoard opponentGrid={displayOpponentGrid} />
             </>
           )}
 

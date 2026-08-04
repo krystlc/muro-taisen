@@ -19,7 +19,9 @@ export class Board {
    * Creates an empty 6x13 grid.
    */
   public static createEmptyGrid(): BoardGrid {
-    return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
+    const grid = Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
+    console.debug('[Board] Created empty grid:', grid);
+    return grid;
   }
 
   /**
