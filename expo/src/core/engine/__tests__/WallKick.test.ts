@@ -24,7 +24,7 @@ describe('Active Piece: Rotation Wall Kicking', () => {
 
     // 2. Action: Rotate right (clockwise)
     // Normal rotation to 90 degrees puts partner at (row 5, col 6) -> Out of bounds!
-    engine.applyInput('ROTATE_RIGHT');
+    engine.applyInput('ROTATE_CW');
     const state = engine.getState();
 
     // 3. Assertion: Piece should have rotated AND shifted left by 1 column
@@ -43,7 +43,7 @@ describe('Active Piece: Rotation Wall Kicking', () => {
 
     // 2. Action: Rotate left (counter-clockwise)
     // Normal rotation to 270 degrees puts partner at (row 5, col -1) -> Out of bounds!
-    engine.applyInput('ROTATE_LEFT');
+    engine.applyInput('ROTATE_CCW');
     const state = engine.getState();
 
     // 3. Assertion: Piece should have rotated AND shifted right by 1 column
@@ -54,19 +54,19 @@ describe('Active Piece: Rotation Wall Kicking', () => {
   it('should kick up when rotating horizontally against the floor', () => {
     // 1. Setup: Piece is horizontal, at the bottom of the board
     engine.forceActivePieceState({
-      row: BOARD_ROWS - 1, // Bottom row
+      row: 0, // Bottom row (if 0 is bottom)
       column: 3,
       rotation: 90 // Horizontal
     });
 
     // 2. Action: Rotate right
     // Normal rotation to 180 degrees puts partner at (row 12, col 3) -> Below floor!
-    engine.applyInput('ROTATE_RIGHT');
+    engine.applyInput('ROTATE_CW');
     const state = engine.getState();
 
     // 3. Assertion: Piece should have rotated AND shifted up by 1 row
     expect(state.activePiece?.rotation).toBe(180);
-    expect(state.activePiece?.row).toBe(BOARD_ROWS - 2); // Kicked up
+    expect(state.activePiece?.row).toBe(1); // Kicked up (row index increases upwards)
   });
 
   it('should attempt the full fallback sequence and fail if all kicks are blocked', () => {

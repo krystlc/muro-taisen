@@ -58,6 +58,23 @@ export class GameEngine {
     };
   }
 
+  public applyInput(action: InputAction): void {
+    this.queueInput(action);
+  }
+
+  public forceActivePieceState(piece: Partial<ActivePiece>): void {
+    if (this.state.activePiece) {
+        this.state.activePiece = { ...this.state.activePiece, ...piece };
+    } else {
+        // Fallback if no piece is currently active, though tests should ensure one exists
+        this.state.activePiece = piece as ActivePiece;
+    }
+  }
+
+  public forceGridState(grid: BoardGrid): void {
+      this.state.grid = grid;
+  }
+
   /**
    * Receives input commands from the UI/Network and queues them for the next tick.
    */
@@ -218,15 +235,19 @@ export class GameEngine {
     column = piece.column,
     rotation = piece.rotation,
   ): boolean {
-    return this.getPieceCoordinates(piece, row, column, rotation).every(([gemRow, gemColumn]) => {
-      return (
-        gemRow >= 0 &&
+    const coords = this.getPieceCoordinates(piece, row, column, rotation);
+    const valid = coords.every(([gemRow, gemColumn]) => {
+      const isInBounds = gemRow >= 0 &&
         gemRow < BOARD_ROWS &&
         gemColumn >= 0 &&
-        gemColumn < BOARD_COLS &&
-        this.state.grid[gemRow][gemColumn] === null
-      );
+        gemColumn < BOARD_COLS;
+      const isEmpty = isInBounds && this.state.grid[gemRow][gemColumn] === null;
+      if (!isInBounds || !isEmpty) {
+        console.debug(`[GameEngine] Placement invalid: row=${gemRow}, col=${gemColumn}, isInBounds=${isInBounds}, isEmpty=${isEmpty}`);
+      }
+      return isInBounds && isEmpty;
     });
+    return valid;
   }
 
   private tryMove(columnDelta: number): boolean {
@@ -254,10 +275,32 @@ export class GameEngine {
     const nextIndex = (currentIndex + (rotationDelta > 0 ? 1 : -1) + rotations.length) % rotations.length;
     const nextRotation = rotations[nextIndex];
 
-    if (!this.canPlacePiece(piece, piece.row, piece.column, nextRotation)) return false;
+    // 1. Try default position
+    if (this.canPlacePiece(piece, piece.row, piece.column, nextRotation)) {
+      piece.rotation = nextRotation;
+      return true;
+    }
 
-    piece.rotation = nextRotation;
-    return true;
+    // 2. Try Wall Kicks
+    // Order of kicks can be tuned. Based on tests: kick left, right, up.
+    const kicks = [
+      [0, -1], // Kick Left
+      [0, 1],  // Kick Right
+      [1, 0],  // Kick Up
+      [-1, 0], // Kick Down
+    ];
+
+    for (const [rKick, cKick] of kicks) {
+      if (this.canPlacePiece(piece, piece.row + rKick, piece.column + cKick, nextRotation)) {
+        console.debug(`[GameEngine] Wall kick successful: rKick=${rKick}, cKick=${cKick}`);
+        piece.rotation = nextRotation;
+        piece.row += rKick;
+        piece.column += cKick;
+        return true;
+      }
+    }
+    console.debug(`[GameEngine] Wall kick failed for rotation ${nextRotation}`);
+    return false;
   }
 
   public addGarbage(count: number): void {
