@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ChainResolver } from './ChainResolver';
-import { Gem, GemColor, GemType } from '../models/Gem';
-import { Board } from './Board';
+import { ChainResolver } from '../ChainResolver';
+import { Gem, GemColor, GemType } from '../../models/Gem';
+import { Board } from '../Board';
 
 describe('Chain Resolver Engine', () => {
   it('should shatter adjacent normal gems of the same color when a Crash Gem detonates', () => {

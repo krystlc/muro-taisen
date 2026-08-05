@@ -1,7 +1,7 @@
-import { GameEngine } from './GameEngine';
-import { GemColor, GemType } from '../models/Gem';
+import { GameEngine } from '../GameEngine';
+import { GemColor, GemType } from '../../models/Gem';
 import { describe, beforeEach, test, expect, it } from 'vitest';
-import { SPAWN_COLUMN } from './Board';
+import { SPAWN_COLUMN } from '../Board';
 
 describe('GameEngine Core Mechanics', () => {
   let engine: GameEngine;

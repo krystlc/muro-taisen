@@ -1,8 +1,8 @@
 // src/core/engine/GameState.test.ts
 import { describe, it, expect } from 'vitest';
-import { GameStateValidator } from './GameStateValidator';
-import { GemColor, GemType } from '../models/Gem';
-import { Board, BOARD_COLS } from './Board';
+import { GameStateValidator } from '../GameStateValidator';
+import { GemColor, GemType } from '../../models/Gem';
+import { Board, BOARD_COLS } from '../Board';
 
 describe('Game State & Overflow Validation', () => {
   const SPAWN_COLUMN = 3; // 4th column from the left (0-indexed)

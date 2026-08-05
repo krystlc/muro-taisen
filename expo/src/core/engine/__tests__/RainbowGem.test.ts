@@ -1,8 +1,8 @@
 // src/core/engine/RainbowGem.test.ts
 import { describe, it, expect } from 'vitest';
-import { GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
-import { ChainResolver } from './ChainResolver';
+import { GemColor, GemType } from '../../models/Gem';
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from '../Board';
+import { ChainResolver } from '../ChainResolver';
 
 function createEmptyGrid(): BoardGrid {
   return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));

@@ -1,7 +1,7 @@
 // src/core/engine/Engine.test.ts
 import { describe, it, expect } from 'vitest';
-import { GameEngine } from './GameEngine';
-import { GemType } from '../models/Gem';
+import { GameEngine } from '../GameEngine';
+import { GemType } from '../../models/Gem';
 
 describe('Engine - Garbage Queueing and Dropping', () => {
 

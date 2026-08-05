@@ -1,6 +1,6 @@
 // src/core/engine/PRNG.test.ts
 import { describe, it, expect } from 'vitest';
-import { PRNG } from './PRNG';
+import { PRNG } from '../PRNG';
 
 describe('Pseudo-Random Number Generator (PRNG)', () => {
   it('should generate the exact same sequence of numbers given the same seed', () => {

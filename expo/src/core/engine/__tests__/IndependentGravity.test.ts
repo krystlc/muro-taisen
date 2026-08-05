@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEngine } from './GameEngine';
-import { BOARD_COLS, BOARD_ROWS } from './Board';
-import { GemColor, GemType } from '../models/Gem';
+import { GameEngine } from '../GameEngine';
+import { BOARD_COLS, BOARD_ROWS } from '../Board';
+import { GemColor, GemType } from '../../models/Gem';
 
 describe('Independent Column Gravity & Piece Separation', () => {
   let engine: GameEngine;

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEngine } from './GameEngine';
-import { BOARD_COLS, BOARD_ROWS } from './Board';
-import { ChainResolver } from './ChainResolver';
-import { Merger } from './Merger';
-import { GemColor, GemType } from '../models/Gem';
+import { GameEngine } from '../GameEngine';
+import { BOARD_COLS, BOARD_ROWS } from '../Board';
+import { ChainResolver } from '../ChainResolver';
+import { Merger } from '../Merger';
+import { GemColor, GemType } from '../../models/Gem';
 
 describe('Advanced Puzzle Mechanics: Power Gems, Monolithic Gravity, & Counters', () => {
   let engine: GameEngine;

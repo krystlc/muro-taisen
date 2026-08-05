@@ -1,8 +1,6 @@
 // src/core/engine/ActivePiece.test.ts
 import { describe, it, expect } from 'vitest';
-import { GameEngine } from './GameEngine';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS, Board } from './Board';
-import { GemColor, GemType } from '../models/Gem';
+import { GameEngine } from '../GameEngine';
 
 describe('Active Piece & Input Mechanics', () => {
   it('should move the active piece left and right based on input', () => {

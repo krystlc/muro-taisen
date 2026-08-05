@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { Board } from './Board';
-import { GemColor, GemType } from '../models/Gem';
-import { Merger } from './Merger';
+import { Board } from '../Board';
+import { GemColor, GemType } from '../../models/Gem';
+import { Merger } from '../Merger';
 
 describe('Power Gem Merger Engine', () => {
   it('should merge a 2x2 block of identical normal gems into a Power Gem', () => {

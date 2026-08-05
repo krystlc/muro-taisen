@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from '../engine/Board';
-import { GemColor, GemType } from '../models/Gem';
-import { ChainResolver } from '../engine/ChainResolver';
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from '../Board'
+import { GemColor, GemType } from '../../models/Gem';
+import { ChainResolver } from '../ChainResolver'
 
 describe('Punishment Mechanic', () => {
   const createEmptyBoard = (): BoardGrid => Array(BOARD_ROWS).fill(null).map(() => Array(BOARD_COLS).fill(null));

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { AIEngine } from './AIEngine';
-import { GemColor, GemType } from '../models/Gem';
-import { Board } from './Board';
+import { AIEngine } from '../AIEngine';
+import { GemColor, GemType } from '../../models/Gem';
+import { Board } from '../Board';
 
 describe('AI Heuristic Engine', () => {
   it('should heavily penalize dropping pieces in columns close to the ceiling', () => {

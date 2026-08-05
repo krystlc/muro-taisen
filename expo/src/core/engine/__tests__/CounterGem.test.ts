@@ -1,9 +1,9 @@
 // src/core/engine/CounterGem.test.ts
 import { describe, it, expect } from 'vitest';
-import { GemColor, GemType } from '../models/Gem';
-import { Board } from './Board';
-import { ChainResolver } from './ChainResolver';
-import { GameEngine } from './GameEngine';
+import { GemColor, GemType } from '../../models/Gem';
+import { Board } from '../Board';
+import { ChainResolver } from '../ChainResolver';
+import { GameEngine } from '../GameEngine';
 
 describe('Counter Gem (Garbage) Mechanics', () => {
   it('should decrement the counterValue of all Counter Gems by 1 at the end of a turn cycle', () => {
