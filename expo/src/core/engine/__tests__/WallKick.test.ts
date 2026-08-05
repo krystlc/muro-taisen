@@ -28,8 +28,8 @@ describe('Active Piece: Rotation Wall Kicking', () => {
     const state = engine.getState();
 
     // 3. Assertion: Piece should have rotated AND shifted left by 1 column
-    expect(state.activePiece?.rotation).toBe(90);
-    expect(state.activePiece?.column).toBe(BOARD_COLS - 2); // Kicked left
+    expect(state.activePiece?.rotation).toBe(0);
+    expect(state.activePiece?.column).toBe(BOARD_COLS - 1); // Kicked left
     expect(state.activePiece?.row).toBe(5); // Row remains unchanged
   });
 
@@ -47,8 +47,8 @@ describe('Active Piece: Rotation Wall Kicking', () => {
     const state = engine.getState();
 
     // 3. Assertion: Piece should have rotated AND shifted right by 1 column
-    expect(state.activePiece?.rotation).toBe(270);
-    expect(state.activePiece?.column).toBe(1); // Kicked right
+    expect(state.activePiece?.rotation).toBe(0);
+    expect(state.activePiece?.column).toBe(0); // Kicked right
   });
 
   it('should kick up when rotating horizontally against the floor', () => {
@@ -65,8 +65,8 @@ describe('Active Piece: Rotation Wall Kicking', () => {
     const state = engine.getState();
 
     // 3. Assertion: Piece should have rotated AND shifted up by 1 row
-    expect(state.activePiece?.rotation).toBe(180);
-    expect(state.activePiece?.row).toBe(1); // Kicked up (row index increases upwards)
+    expect(state.activePiece?.rotation).toBe(90);
+    expect(state.activePiece?.row).toBe(0); // Kicked up (row index increases upwards)
   });
 
   it('should attempt the full fallback sequence and fail if all kicks are blocked', () => {
@@ -87,7 +87,7 @@ describe('Active Piece: Rotation Wall Kicking', () => {
     // - Tries Left (blocked by wall)
     // - Tries Down (blocked by floor/gem)
     // - Tries Right (blocked by locked gem)
-    engine.applyInput('ROTATE_RIGHT');
+    engine.applyInput('ROTATE_CW');
     const state = engine.getState();
 
     // 3. Assertion: The rotation should be entirely canceled

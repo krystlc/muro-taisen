@@ -281,8 +281,8 @@ export class GameEngine {
       return true;
     }
 
-    // 2. Try Wall Kicks
-    // Order of kicks can be tuned. Based on tests: kick left, right, up.
+    // 2. Try Wall Kicks (Check in order: Left, Right, Up, Down)
+    // Puzzle Fighter wall kicks are generally minimal.
     const kicks = [
       [0, -1], // Kick Left
       [0, 1],  // Kick Right
@@ -292,14 +292,13 @@ export class GameEngine {
 
     for (const [rKick, cKick] of kicks) {
       if (this.canPlacePiece(piece, piece.row + rKick, piece.column + cKick, nextRotation)) {
-        console.debug(`[GameEngine] Wall kick successful: rKick=${rKick}, cKick=${cKick}`);
         piece.rotation = nextRotation;
         piece.row += rKick;
         piece.column += cKick;
         return true;
       }
     }
-    console.debug(`[GameEngine] Wall kick failed for rotation ${nextRotation}`);
+
     return false;
   }
 
