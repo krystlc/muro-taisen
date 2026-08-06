@@ -83,8 +83,6 @@ export default function BattleScreen() {
         // or scale it down so smaller score bumps still trigger attacks
         const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
 
-        console.log("[BATTLE] Score diff:", scoreDiff, "Triggering garbage lines:", garbageLines);
-
         opponentEngine.queueGarbage(garbageLines);
         opponentEngine.processGarbageQueue(0);
 
@@ -171,6 +169,8 @@ export default function BattleScreen() {
 
   const handlePlayAgain = () => {
     setPhase('READY');
+    setMatchResult(null); // <-- Clear previous result
+    lastScoreRef.current = 0; // <-- Reset score tracker too
     engineRef.current = new GameEngine(`match_seed_${Date.now()}`);
     opponentEngineRef.current = new GameEngine(`match_seed_${Date.now() + 1}`);
     setGameState(engineRef.current.getState());
@@ -180,29 +180,6 @@ export default function BattleScreen() {
       setPhase('FIGHT');
     }, 100);
   };
-
-  {
-    matchResult && (
-      <View style={styles.gameOverOverlay}>
-        <Text style={[styles.gameOverText, matchResult === 'WIN' ? styles.winText : styles.lossText]}>
-          {matchResult === 'WIN' ? 'VICTORY!' : 'K.O. / DEFEAT'}
-        </Text>
-
-        <View style={styles.buttonRow}>
-          <GameButton
-            label="Next Opponent"
-            onPress={() => router.replace('/select-opponent' as any)} // Adjust path to your next screen/roster
-            variant="primary"
-          />
-          <GameButton
-            label="Play Again"
-            onPress={handlePlayAgain}
-            variant="secondary"
-          />
-        </View>
-      </View>
-    )
-  }
 
   return (
     <View style={styles.container}>
@@ -219,6 +196,7 @@ export default function BattleScreen() {
       </View>
 
       {/* BOTTOM HALF: PUZZLE AREA */}
+
       <InputController engineRef={engineRef} enabled={phase === 'FIGHT'}>
         <View style={styles.puzzleArea}>
 
@@ -234,15 +212,31 @@ export default function BattleScreen() {
             </>
           )}
 
-          {gameState.status === 'GAME_OVER' && (
+          {/* Combined Game Over / Win Overlay */}
+          {(gameState.status === 'GAME_OVER' || opponentGameState.status === 'GAME_OVER' || matchResult) && (
             <View style={styles.gameOverOverlay}>
-              <Text style={styles.gameOverText}>GAME OVER</Text>
-              <GameButton label="Play Again" onPress={handlePlayAgain} variant="primary" />
+              <Text style={[styles.gameOverText, matchResult === 'WIN' ? styles.winText : styles.lossText]}>
+                {matchResult === 'WIN' ? 'VICTORY!' : 'K.O. / DEFEAT'}
+              </Text>
+
+              <View style={styles.buttonRow}>
+                <GameButton
+                  label="Next Opponent"
+                  onPress={() => router.replace('/select-opponent' as any)}
+                  variant="primary"
+                />
+                <GameButton
+                  label="Play Again"
+                  onPress={handlePlayAgain}
+                  variant="secondary"
+                />
+              </View>
             </View>
           )}
 
         </View>
       </InputController>
+
     </View>
   );
 }

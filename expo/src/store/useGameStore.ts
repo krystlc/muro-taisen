@@ -5,7 +5,7 @@ export type DifficultyLabel = 'ROOKIE' | 'TAISEN' | 'MASTER';
 export type PlayerRole = 'PLAYER' | 'CPU';
 
 export interface Player {
-  name: CharacterName | 'CPU // 01';
+  name: string;
   role: PlayerRole;
 }
 
@@ -14,6 +14,7 @@ type GameStore = {
   player2: Player;
   difficulty: DifficultyLabel;
   setPlayer1Character: (character: CharacterName) => void;
+  setPlayer2Character: (name: string) => void;
   setDifficulty: (difficulty: DifficultyLabel) => void;
   resetMatch: () => void;
 };
@@ -27,6 +28,9 @@ export const useGameStore = create<GameStore>((set) => ({
   difficulty: 'TAISEN',
   setPlayer1Character: (name) => set((state) => ({
     player1: { ...state.player1, name },
+  })),
+  setPlayer2Character: (name) => set((state) => ({
+    player2: { ...state.player2, name },
   })),
   setDifficulty: (difficulty) => set({ difficulty }),
   resetMatch: () => set({
