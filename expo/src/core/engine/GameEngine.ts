@@ -27,7 +27,7 @@ export interface GameState {
   score: number;
   tickCount: number;
   activePiece: ActivePiece | null;
-  incomingGarbage: number;
+  pendingGarbage: number;
 }
 
 /**
@@ -54,7 +54,7 @@ export class GameEngine {
       score: 0,
       tickCount: 0,
       activePiece: this.createPiece(),
-      incomingGarbage: 0,
+      pendingGarbage: 0,
     };
   }
 
@@ -83,16 +83,24 @@ export class GameEngine {
   }
 
   public queueGarbage(count: number): void {
-    this.state.incomingGarbage += count;
+    this.state.pendingGarbage += count;
     if (this.onAttack) {
       this.onAttack(count);
     }
   }
+public processGarbageQueue(shatteredGems: number = 0): void {
+  if (this.state.pendingGarbage === 0 && shatteredGems === 0) return;
 
-  public processGarbageQueue(): void {
-    if (this.state.incomingGarbage === 0) return;
-    
-    const count = this.state.incomingGarbage;
+  console.debug(`[GameEngine] Processing garbage: pending=${this.state.pendingGarbage}, shattered=${shatteredGems}`);
+
+  // Counter garbage with shattered gems
+  const reduction = Math.min(this.state.pendingGarbage, shatteredGems);
+  this.state.pendingGarbage -= reduction;
+  console.debug(`[GameEngine] Garbage after reduction: ${this.state.pendingGarbage}`);
+
+  // Drop remaining garbage
+  const count = this.state.pendingGarbage;
+  // ... rest of the loop
     for (let i = 0; i < count; i++) {
         const col = this.prng.nextInt(0, BOARD_COLS);
         for (let r = BOARD_ROWS - 1; r >= 0; r--) {
@@ -107,7 +115,7 @@ export class GameEngine {
           }
         }
     }
-    this.state.incomingGarbage = 0;
+    this.state.pendingGarbage = 0;
   }
 
   /**
@@ -359,6 +367,7 @@ export class GameEngine {
     // --- THE CHAIN REACTION LOOP ---
     // Keep applying gravity, merging, and resolving until no more gems shatter.
     let isChaining = true;
+    let totalShattered = 0;
     while (isChaining) {
       // 1. Apply column gravity so unsupported/dangling gems drop independently
       let moved = true;
@@ -376,16 +385,17 @@ export class GameEngine {
       if (chainResult.gemsShattered === 0) {
         isChaining = false;
       } else {
+        totalShattered += chainResult.gemsShattered;
         // Optional: Increment this.state.score here based on chain combo multiplier!
         this.state.score += chainResult.gemsShattered
       }
     }
 
-    // 5. Decrement counters and validate final board status
+    // 4. Decrement counters and validate final board status
     GameEngine.decrementCounters(this.state.grid);
-    
-    // Process garbage AFTER lock and chain resolution
-    this.processGarbageQueue();
+
+    // 5. Process garbage AFTER lock and chain resolution
+    this.processGarbageQueue(totalShattered);
 
     this.state.status = GameStateValidator.checkStatus(this.state.grid);
 
