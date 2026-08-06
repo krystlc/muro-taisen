@@ -95,7 +95,6 @@ describe('Advanced Puzzle Mechanics: Power Gems, Monolithic Gravity, & Counters'
       // Verify they are merged into a Power Gem with width 2 and height 2 sharing a powerGemId
       const firstGem = grid[0][0];
 
-      console.debug(grid)
       expect(firstGem?.powerGemId).toBeDefined();
       expect(firstGem?.powerWidth).toBe(2);
       expect(firstGem?.powerHeight).toBe(2);

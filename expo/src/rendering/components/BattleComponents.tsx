@@ -1,16 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { GemCell } from './GemCell';
 import { BOARD_ROWS } from '@/core/engine/Board';
+import { ActivePiece } from '@/core/engine/GameEngine';
 
 // --- LEFT COLUMN: NEXT PIECE ---
-export function NextPiecePanel({ nextPiece }: { nextPiece?: any }) {
+export function NextPiecePanel({ nextPiece }: { nextPiece: ActivePiece }) {
   return (
     <View style={styles.sidePanel}>
       <Text style={styles.panelTitle}>NEXT</Text>
       <View style={styles.nextBox}>
-        {/* Mocking the next piece stack based on the screenshot */}
-        <GemCell gem={{ color: 'BLUE', type: 'NORMAL' }} size={35} />
-        <GemCell gem={{ color: 'RED', type: 'NORMAL' }} size={35} />
+        {nextPiece.gems.map((gem, i) => <GemCell key={i} gem={{ color: gem.color, type: gem.type }} size={35} />)}
       </View>
     </View>
   );

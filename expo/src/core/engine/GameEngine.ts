@@ -27,6 +27,7 @@ export interface GameState {
   score: number;
   tickCount: number;
   activePiece: ActivePiece | null;
+  nextPiece: ActivePiece;
   pendingGarbage: number;
 }
 
@@ -43,7 +44,7 @@ export class GameEngine {
   private gravityAccumulatorMs = 0;
   private pieceSequence = 0;
   private readonly gravityIntervalMs = 500;
-  
+
   public onAttack?: (count: number) => void;
 
   constructor(seed: string) {
@@ -54,6 +55,7 @@ export class GameEngine {
       score: 0,
       tickCount: 0,
       activePiece: this.createPiece(),
+      nextPiece: this.createPiece(),
       pendingGarbage: 0,
     };
   }
@@ -64,15 +66,15 @@ export class GameEngine {
 
   public forceActivePieceState(piece: Partial<ActivePiece>): void {
     if (this.state.activePiece) {
-        this.state.activePiece = { ...this.state.activePiece, ...piece };
+      this.state.activePiece = { ...this.state.activePiece, ...piece };
     } else {
-        // Fallback if no piece is currently active, though tests should ensure one exists
-        this.state.activePiece = piece as ActivePiece;
+      // Fallback if no piece is currently active, though tests should ensure one exists
+      this.state.activePiece = piece as ActivePiece;
     }
   }
 
   public forceGridState(grid: BoardGrid): void {
-      this.state.grid = grid;
+    this.state.grid = grid;
   }
 
   /**
@@ -84,39 +86,60 @@ export class GameEngine {
 
   public queueGarbage(count: number): void {
     this.state.pendingGarbage += count;
-    if (this.onAttack) {
-      this.onAttack(count);
-    }
+    console.log("[ENGINE] Garbage queued. Total pending:", this.state.pendingGarbage);
   }
-public processGarbageQueue(shatteredGems: number = 0): void {
-  if (this.state.pendingGarbage === 0 && shatteredGems === 0) return;
 
-  console.debug(`[GameEngine] Processing garbage: pending=${this.state.pendingGarbage}, shattered=${shatteredGems}`);
+  public processGarbageQueue(shatteredGems: number = 0): void {
+    console.log("[ENGINE] processGarbageQueue called. Pending:", this.state.pendingGarbage, "Shattered:", shatteredGems);
+      if (this.state.pendingGarbage === 0 && shatteredGems === 0) return;
 
-  // Counter garbage with shattered gems
-  const reduction = Math.min(this.state.pendingGarbage, shatteredGems);
-  this.state.pendingGarbage -= reduction;
-  console.debug(`[GameEngine] Garbage after reduction: ${this.state.pendingGarbage}`);
+      const reduction = Math.min(this.state.pendingGarbage, shatteredGems);
+      this.state.pendingGarbage -= reduction;
 
-  // Drop remaining garbage
-  const count = this.state.pendingGarbage;
-  // ... rest of the loop
-    for (let i = 0; i < count; i++) {
-        const col = this.prng.nextInt(0, BOARD_COLS);
-        for (let r = BOARD_ROWS - 1; r >= 0; r--) {
-          if (this.state.grid[r][col] === null) {
-            this.state.grid[r][col] = {
-              id: `garbage-${this.pieceSequence++}`,
-              color: GemColor.BLUE,
-              type: GemType.COUNTER,
-              counterValue: 3,
-            };
-            break;
+      const outgoingAttack = shatteredGems - reduction;
+      if (outgoingAttack > 0 && this.onAttack) {
+        this.onAttack(outgoingAttack);
+      }
+
+      const count = this.state.pendingGarbage;
+      console.log("[ENGINE] Attempting to drop individual garbage count:", count);
+
+      // If garbage count is massive (like BOARD_ROWS), fill columns systematically to hit the spawn column
+      if (count >= BOARD_ROWS) {
+        for (let r = 0; r < BOARD_ROWS; r++) {
+          for (let col = 0; col < BOARD_COLS; col++) {
+            if (this.state.grid[r][col] === null) {
+              this.state.grid[r][col] = {
+                id: `garbage-${this.pieceSequence++}`,
+                color: GemColor.BLUE,
+                type: GemType.COUNTER,
+                counterValue: 3,
+              };
+            }
           }
         }
+      } else {
+        // Standard random individual gem drop for smaller garbage counts
+        for (let i = 0; i < count; i++) {
+          const col = this.prng.nextInt(0, BOARD_COLS);
+          for (let r = 0; r < BOARD_ROWS; r++) {
+            if (this.state.grid[r][col] === null) {
+              this.state.grid[r][col] = {
+                id: `garbage-${this.pieceSequence++}`,
+                color: GemColor.BLUE,
+                type: GemType.COUNTER,
+                counterValue: 3,
+              };
+              console.log(`[ENGINE] Dropped garbage at row ${r}, col ${col}`);
+              break;
+            }
+          }
+        }
+      }
+
+      this.state.pendingGarbage = 0;
+      this.state.status = GameStateValidator.checkStatus(this.state.grid);
     }
-    this.state.pendingGarbage = 0;
-  }
 
   /**
    * Decrements all Counter Gems on the board by 1. Transforms them to NORMAL if they reach 0.
@@ -311,22 +334,9 @@ public processGarbageQueue(shatteredGems: number = 0): void {
   }
 
   public addGarbage(count: number): void {
-    // Drop garbage gems into the grid starting from the top
-    for (let i = 0; i < count; i++) {
-      const col = this.prng.nextInt(0, BOARD_COLS);
-      // Place at the top-most available row or just at the top
-      for (let r = BOARD_ROWS - 1; r >= 0; r--) {
-        if (this.state.grid[r][col] === null) {
-          this.state.grid[r][col] = {
-            id: `garbage-${this.pieceSequence++}`,
-            color: GemColor.BLUE, // Placeholder color
-            type: GemType.COUNTER,
-            counterValue: 3,
-          };
-          break;
-        }
-      }
-    }
+    // Queue and process immediately using the safe queue logic
+    this.queueGarbage(count);
+    this.processGarbageQueue(0);
   }
 
   public applyMove(move: { column: number; rotation: number }): void {
@@ -405,12 +415,13 @@ public processGarbageQueue(shatteredGems: number = 0): void {
     }
 
     // 6. Pre-check spawn validity before instantiating the next piece
-    const nextPiece = this.createPiece();
+    const nextPiece = this.state.nextPiece;
     if (!this.canPlacePiece(nextPiece)) {
       this.state.status = 'GAME_OVER';
       this.state.activePiece = null;
     } else {
       this.state.activePiece = nextPiece;
+      this.state.nextPiece = this.createPiece();
     }
 
     return true;

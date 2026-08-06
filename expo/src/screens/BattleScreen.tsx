@@ -59,6 +59,7 @@ export default function BattleScreen() {
 
   const lastScoreRef = useRef(0);
   const aiThinkingRef = useRef(false);
+  const [matchResult, setMatchResult] = useState<'WIN' | 'LOSS' | null>(null);
 
   useEffect(() => {
     if (phase !== 'FIGHT') return;
@@ -77,11 +78,16 @@ export default function BattleScreen() {
       // Calculate Garbage safely
       if (newState.score > lastScoreRef.current) {
         const scoreDiff = newState.score - lastScoreRef.current;
-        const garbageLines = Math.floor(scoreDiff / 100);
 
-        if (garbageLines > 0) {
-          opponentEngine.queueGarbage(garbageLines);
-        }
+        // Give at least 1 line of garbage for any scoring event,
+        // or scale it down so smaller score bumps still trigger attacks
+        const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
+
+        console.log("[BATTLE] Score diff:", scoreDiff, "Triggering garbage lines:", garbageLines);
+
+        opponentEngine.queueGarbage(garbageLines);
+        opponentEngine.processGarbageQueue(0);
+
         lastScoreRef.current = newState.score;
       }
 
@@ -109,6 +115,12 @@ export default function BattleScreen() {
       // 3. WIN/LOSS CONDITIONS
       if (newState.status === 'GAME_OVER' || currentAiState.status === 'GAME_OVER') {
         clearInterval(interval);
+
+        if (newState.status === 'GAME_OVER') {
+          setMatchResult('LOSS');
+        } else {
+          setMatchResult('WIN');
+        }
       }
     }, 50);
 
@@ -169,6 +181,29 @@ export default function BattleScreen() {
     }, 100);
   };
 
+  {
+    matchResult && (
+      <View style={styles.gameOverOverlay}>
+        <Text style={[styles.gameOverText, matchResult === 'WIN' ? styles.winText : styles.lossText]}>
+          {matchResult === 'WIN' ? 'VICTORY!' : 'K.O. / DEFEAT'}
+        </Text>
+
+        <View style={styles.buttonRow}>
+          <GameButton
+            label="Next Opponent"
+            onPress={() => router.replace('/select-opponent' as any)} // Adjust path to your next screen/roster
+            variant="primary"
+          />
+          <GameButton
+            label="Play Again"
+            onPress={handlePlayAgain}
+            variant="secondary"
+          />
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -193,7 +228,7 @@ export default function BattleScreen() {
             </View>
           ) : (
             <>
-              <NextPiecePanel nextPiece={gameState.activePiece} />
+              <NextPiecePanel nextPiece={gameState.nextPiece} />
               <MainBoard displayGrid={displayGrid} />
               <OpponentMiniBoard opponentGrid={displayOpponentGrid} />
             </>
@@ -276,5 +311,15 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: 'bold',
     marginBottom: 24,
+  },
+  winText: {
+    color: '#00e5ff',
+  },
+  lossText: {
+    color: '#ff3366',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 16,
   },
 });

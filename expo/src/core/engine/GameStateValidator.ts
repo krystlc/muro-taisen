@@ -1,13 +1,18 @@
-import { BoardGrid, SPAWN_COLUMN, BOARD_ROWS } from './Board';
+import { BoardGrid } from './Board';
 
 export type GameStatus = 'PLAYING' | 'GAME_OVER';
 
 export class GameStateValidator {
   public static checkStatus(grid: BoardGrid): GameStatus {
-    const topRowIndex = BOARD_ROWS - 1;
+    if (!grid || grid.length === 0) return 'PLAYING';
 
-    // If the top row of the spawn column (or adjacent spawn coordinates) is blocked, trigger GAME_OVER
-    if (grid[topRowIndex][SPAWN_COLUMN] !== null || (topRowIndex - 1 >= 0 && grid[topRowIndex - 1][SPAWN_COLUMN] !== null)) {
+    // The top row is the last array in the grid stack
+    const topRow = grid[grid.length - 1];
+
+    // If any cell in the top row is occupied, it's a top-out (Game Over)
+    const isTopRowBlocked = topRow.some(cell => cell !== null);
+
+    if (isTopRowBlocked) {
       return 'GAME_OVER';
     }
 
