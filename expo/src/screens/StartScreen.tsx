@@ -1,80 +1,123 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ImageBackground, Pressable } from 'react-native';
 
-import { GameButton, ScreenShell, gameColors } from '../components/game-ui';
+import { GameButton, gameColors } from '../components/game-ui';
 
 export default function StartScreen() {
   const router = useRouter();
 
   return (
-    <ScreenShell
-      eyebrow="THREE.JS // MOBILE ARENA"
-      subtitle="Stack fast. Read the field. Outlast your opponent."
-      title="Muro Taisen"
+    <ImageBackground
+      source={require('../../assets/images/bg.png')}
+      style={styles.background}
     >
       <StatusBar style="light" />
-      <View style={styles.arenaMark}>
-        <View style={[styles.block, styles.blockCyan]} />
-        <View style={[styles.block, styles.blockPink]} />
-        <View style={[styles.block, styles.blockBlue]} />
-        <View style={[styles.block, styles.blockYellow]} />
+      <View style={styles.container}>
+
+        {/* Header: Player Count */}
+        <View style={styles.topRight}>
+          <Text style={styles.playerCount}>👥 0</Text>
+        </View>
+
+        {/* Main Content: Title & Subtitle */}
+        <View style={styles.content}>
+          <Text style={styles.title}>Muro Taisen</Text>
+          <Text style={styles.subtitle}>PUZZLE FIGHTER IS LIVE</Text>
+          <Text style={styles.subtext}>DISCOVER A WORLD OF LEGENDARY FIGHTERS</Text>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          <GameButton label="ONLINE MATCH" onPress={() => router.replace('/character-select')} />
+          <GameButton
+            label="OFFLINE CAMPAIGN"
+            onPress={() => router.push('/difficulty-select')}
+            variant="secondary"
+          />
+        </View>
+
+        {/* Footer: Icons & Legal */}
+        <View style={styles.footer}>
+          <View style={styles.footerIcons}>
+            <Text style={styles.icon}>⚙️</Text>
+            <Text style={styles.icon}>👥</Text>
+            <Text style={styles.icon}>🛒</Text>
+          </View>
+          <Text style={styles.legal}>
+            BADHOMBRE 2026
+          </Text>
+        </View>
       </View>
-      <View style={styles.actions}>
-        <GameButton label="START MATCH" onPress={() => router.replace('/character-select')} />
-        <GameButton
-          label="HOW TO PLAY"
-          onPress={() => router.push('/difficulty-select')}
-          variant="secondary"
-        />
-      </View>
-      <Text style={styles.footer}>BUILD 0.1.0  •  LOCAL PROTOTYPE</Text>
-    </ScreenShell>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  arenaMark: {
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  container: {
+    backgroundColor: '#000000cc',
+    flex: 1,
+    padding: 24,
+    justifyContent: 'space-between',
+  },
+  topRight: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#111827',
+    padding: 8,
+    borderRadius: 8,
+  },
+  playerCount: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  content: {
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    marginVertical: 22,
+    marginTop: 50,
   },
-  block: {
-    borderRadius: 5,
-    height: 42,
-    transform: [{ rotate: '45deg' }],
-    width: 42,
+  title: {
+    color: '#ff0000',
+    fontSize: 48,
+    fontWeight: '900',
+    textShadowColor: '#fff',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  blockCyan: {
-    backgroundColor: gameColors.cyan,
+  subtitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 20,
   },
-  blockPink: {
-    backgroundColor: gameColors.pink,
-    marginLeft: -12,
-    marginTop: 42,
-  },
-  blockBlue: {
-    backgroundColor: '#7785ff',
-    marginLeft: -12,
-    marginTop: -12,
-  },
-  blockYellow: {
-    backgroundColor: '#ffd166',
-    marginLeft: -12,
-    marginTop: 42,
+  subtext: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
   },
   actions: {
-    gap: 14,
-    marginTop: 36,
+    gap: 16,
+    marginBottom: 100,
   },
   footer: {
-    color: '#526074',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  footerIcons: {
+    flexDirection: 'row',
+    gap: 40,
+    marginBottom: 20,
+  },
+  icon: {
+    fontSize: 32,
+  },
+  legal: {
+    color: '#8491a8',
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginTop: 34,
     textAlign: 'center',
   },
 });
