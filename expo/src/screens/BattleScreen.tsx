@@ -81,7 +81,7 @@ export default function BattleScreen() {
 
         // Give at least 1 line of garbage for any scoring event,
         // or scale it down so smaller score bumps still trigger attacks
-        const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
+        const garbageLines = Math.max(1, Math.floor(scoreDiff / 1.5));
 
         opponentEngine.queueGarbage(garbageLines);
         opponentEngine.processGarbageQueue(0);

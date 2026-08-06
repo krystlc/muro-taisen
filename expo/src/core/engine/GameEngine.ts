@@ -113,7 +113,7 @@ export class GameEngine {
                 id: `garbage-${this.pieceSequence++}`,
                 color: GemColor.BLUE,
                 type: GemType.COUNTER,
-                counterValue: 3,
+                counterValue: 2,
               };
             }
           }
@@ -128,7 +128,7 @@ export class GameEngine {
                 id: `garbage-${this.pieceSequence++}`,
                 color: GemColor.BLUE,
                 type: GemType.COUNTER,
-                counterValue: 3,
+                counterValue: 2,
               };
               console.log(`[ENGINE] Dropped garbage at row ${r}, col ${col}`);
               break;
