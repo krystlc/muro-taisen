@@ -86,7 +86,6 @@ export class GameEngine {
 
   public queueGarbage(count: number): void {
     this.state.pendingGarbage += count;
-    console.log("[ENGINE] Garbage queued. Total pending:", this.state.pendingGarbage);
   }
 
   public processGarbageQueue(shatteredGems: number = 0): void {
@@ -101,7 +100,6 @@ export class GameEngine {
       }
 
       const count = this.state.pendingGarbage;
-      console.log("[ENGINE] Attempting to drop individual garbage count:", count);
 
       // If garbage count is massive (like BOARD_ROWS), fill columns systematically to hit the spawn column
       if (count >= BOARD_ROWS) {
@@ -129,7 +127,6 @@ export class GameEngine {
                 type: GemType.COUNTER,
                 counterValue: 2,
               };
-              console.log(`[ENGINE] Dropped garbage at row ${r}, col ${col}`);
               break;
             }
           }
@@ -273,7 +270,6 @@ export class GameEngine {
         gemColumn < BOARD_COLS;
       const isEmpty = isInBounds && this.state.grid[gemRow][gemColumn] === null;
       if (!isInBounds || !isEmpty) {
-        console.debug(`[GameEngine] Placement invalid: row=${gemRow}, col=${gemColumn}, isInBounds=${isInBounds}, isEmpty=${isEmpty}`);
       }
       return isInBounds && isEmpty;
     });

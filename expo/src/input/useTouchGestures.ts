@@ -1,33 +1,58 @@
 import { GameEngine } from '@/core/engine/GameEngine';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { PanResponder } from 'react-native';
 
 export function useTouchGestures(engineRef: React.RefObject<GameEngine>, enabled: boolean) {
+  // Use a ref to keep track of the current enabled state dynamically
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
+
+  const startTimeRef = useRef<number>(0);
+  const startPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => enabled,
-      onPanResponderRelease: (e, gestureState) => {
-        const { dx, dy, vx } = gestureState;
+      onStartShouldSetPanResponder: () => enabledRef.current,
+      onMoveShouldSetPanResponder: () => enabledRef.current,
+      onPanResponderGrant: (e, gestureState) => {
+        startTimeRef.current = Date.now();
+        startPosRef.current = { x: gestureState.x0, y: gestureState.y0 };
+      },
+      onPanResponderMove: (e, gestureState) => {
+        if (!enabledRef.current) return;
+        const { dx, dy } = gestureState;
 
-        // Differentiate taps vs swipes
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-          // Tap to rotate
-          engineRef.current.queueInput('ROTATE_CW');
-          return;
+        // Use a threshold to distinguish a deliberate drag from accidental jitter
+        const DRAG_THRESHOLD = 20;
+        
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+            if (dx > 0) {
+              engineRef.current?.queueInput('MOVE_RIGHT');
+            } else {
+              engineRef.current?.queueInput('MOVE_LEFT');
+            }
+            gestureState.dx = 0; // Reset for continuous movement
+          } else if (dy > DRAG_THRESHOLD) {
+            engineRef.current?.queueInput('SOFT_DROP');
+            gestureState.dy = 0;
+          }
         }
+      },
+      onPanResponderRelease: (e, gestureState) => {
+        if (!enabledRef.current) return;
+        
+        const duration = Date.now() - startTimeRef.current;
+        const { dx, dy } = gestureState;
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (Math.abs(dx) > Math.abs(dy)) {
-          if (dx > 30) {
-            engineRef.current.queueInput('MOVE_RIGHT');
-          } else if (dx < -30) {
-            engineRef.current.queueInput('MOVE_LEFT');
-          }
-        } else {
-          if (dy > 50) {
-            engineRef.current.queueInput('HARD_DROP');
-          } else if (dy > 20) {
-            engineRef.current.queueInput('SOFT_DROP');
-          }
+        // Relaxed thresholds: 300ms duration, 30 distance units for tap detection
+        if (duration < 300 && dist < 30) {
+          engineRef.current?.queueInput('ROTATE_CW');
+        } else if (dy > 80) { 
+          engineRef.current?.queueInput('HARD_DROP');
         }
       },
     })
@@ -35,3 +60,4 @@ export function useTouchGestures(engineRef: React.RefObject<GameEngine>, enabled
 
   return panResponder;
 }
+
