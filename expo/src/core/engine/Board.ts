@@ -20,7 +20,6 @@ export class Board {
    */
   public static createEmptyGrid(): BoardGrid {
     const grid = Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
-    console.debug('[Board] Created empty grid:', grid);
     return grid;
   }
 

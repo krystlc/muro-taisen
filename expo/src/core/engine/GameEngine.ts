@@ -90,7 +90,6 @@ export class GameEngine {
   }
 
   public processGarbageQueue(shatteredGems: number = 0): void {
-    console.log("[ENGINE] processGarbageQueue called. Pending:", this.state.pendingGarbage, "Shattered:", shatteredGems);
       if (this.state.pendingGarbage === 0 && shatteredGems === 0) return;
 
       const reduction = Math.min(this.state.pendingGarbage, shatteredGems);

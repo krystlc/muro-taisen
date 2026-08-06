@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { gameColors } from './game-theme';
 
@@ -22,7 +23,7 @@ type GameButtonProps = {
 
 export function ScreenShell({ children, eyebrow, onBack, subtitle, title }: ScreenShellProps) {
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -43,7 +44,7 @@ export function ScreenShell({ children, eyebrow, onBack, subtitle, title }: Scre
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         <View style={styles.body}>{children}</View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

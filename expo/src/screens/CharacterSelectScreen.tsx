@@ -23,7 +23,6 @@ export default function CharacterSelectScreen() {
       subtitle="Choose your fighter for the first round."
       title="Select pilot"
     >
-      <StatusBar style="light" />
       <View style={styles.list}>
         {characters.map((character) => {
           const selected = character.name === selectedCharacter;
