@@ -26,7 +26,7 @@ interface Game {
   id: string;
   player1Id: string;
   player2Id: string;
-  state: any;
+  matchSeed: string; // Shared seed for deterministic gameplay
 }
 
 // --- High Score API interfaces ---
@@ -261,8 +261,8 @@ class GameServer {
       case "decline_invite":
         this.handleDeclineInvite(userId, message.invitationId);
         break;
-      case "game_state_update":
-        this.handleGameStateUpdate(userId, message.gameId, message.state);
+      case "game_move":
+        this.handleGameMove(userId, message.gameId, message.move);
         break;
       case "get_online_users":
         this.sendOnlineUsers(userId);
@@ -279,6 +279,31 @@ class GameServer {
           message: "Unknown message type.",
         });
     }
+  }
+
+  private handleGameMove(senderId: string, gameId: string, move: any) {
+    const game = this.games.get(gameId);
+    if (!game) {
+      this.sendToUser(senderId, { type: "error", message: "Game not found." });
+      return;
+    }
+
+    if (senderId !== game.player1Id && senderId !== game.player2Id) {
+      this.sendToUser(senderId, {
+        type: "error",
+        message: "You are not part of this game.",
+      });
+      return;
+    }
+
+    // Forward the move directly to the other player
+    const otherPlayerId =
+      senderId === game.player1Id ? game.player2Id : game.player1Id;
+    this.sendToUser(otherPlayerId, {
+      type: "opponent_game_move",
+      gameId: gameId,
+      move: move,
+    });
   }
 
   private sendToUser(userId: string, message: any) {
@@ -492,11 +517,12 @@ class GameServer {
     receiver.status = "playing";
 
     const gameId = crypto.randomUUID();
+    const matchSeed = crypto.randomUUID(); // Deterministic seed
     const newGame: Game = {
       id: gameId,
       player1Id: sender.id,
       player2Id: receiver.id,
-      state: {},
+      matchSeed,
     };
     this.games.set(gameId, newGame);
 
@@ -509,6 +535,7 @@ class GameServer {
     this.sendToUser(sender.id, {
       type: "game_started",
       gameId: gameId,
+      matchSeed,
       opponentId: receiver.id,
       opponentUsername: receiver.username,
       isPlayer1: true,
@@ -516,6 +543,7 @@ class GameServer {
     this.sendToUser(receiver.id, {
       type: "game_started",
       gameId: gameId,
+      matchSeed,
       opponentId: sender.id,
       opponentUsername: sender.username,
       isPlayer1: false,
@@ -561,32 +589,6 @@ class GameServer {
         (inv) => inv.id !== invitationId,
       );
     }
-  }
-
-  private handleGameStateUpdate(senderId: string, gameId: string, state: any) {
-    const game = this.games.get(gameId);
-    if (!game) {
-      this.sendToUser(senderId, { type: "error", message: "Game not found." });
-      return;
-    }
-
-    if (senderId !== game.player1Id && senderId !== game.player2Id) {
-      this.sendToUser(senderId, {
-        type: "error",
-        message: "You are not part of this game.",
-      });
-      return;
-    }
-
-    game.state = state;
-
-    const otherPlayerId =
-      senderId === game.player1Id ? game.player2Id : game.player1Id;
-    this.sendToUser(otherPlayerId, {
-      type: "opponent_game_state_update",
-      gameId: gameId,
-      state: state,
-    });
   }
 
   private endGame(gameId: string, reason: string) {
