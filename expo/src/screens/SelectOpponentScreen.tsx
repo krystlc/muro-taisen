@@ -28,7 +28,13 @@ export default function SelectOpponentScreen() {
   return (
     <ScreenShell
       eyebrow="MATCH SETUP // 03"
-      onBack={() => router.back()}
+      onBack={() => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.push('/start');
+        }
+      }}
       subtitle="Select your next worthy adversary."
       title="Choose opponent"
     >

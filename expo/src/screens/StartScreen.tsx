@@ -29,7 +29,7 @@ export default function StartScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <GameButton label="ONLINE MATCH" onPress={() => router.replace('/character-select')} />
+          <GameButton label="ONLINE MATCH" onPress={() => router.push('/character-select')} />
           <GameButton
             label="OFFLINE CAMPAIGN"
             onPress={() => router.push('/difficulty-select')}

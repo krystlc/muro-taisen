@@ -19,7 +19,13 @@ export default function DifficultySelectScreen() {
   return (
     <ScreenShell
       eyebrow="MATCH SETUP // 02"
-      onBack={() => router.back()}
+      onBack={() => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.push('/character-select');
+        }
+      }}
       subtitle="Set the pace of the battle."
       title="Choose level"
     >
