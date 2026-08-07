@@ -66,6 +66,23 @@ export default function BattleScreen() {
     let lastTime = Date.now();
 
     const interval = setInterval(() => {
+      const currentState = engine.getState();
+      const currentAiState = opponentEngine.getState();
+
+      // Check for WIN/LOSS CONDITIONS before ticking
+      if (currentState.status === 'GAME_OVER' || currentAiState.status === 'GAME_OVER') {
+        clearInterval(interval);
+        setGameState({ ...currentState });
+        setOpponentGameState({ ...currentAiState });
+
+        if (currentState.status === 'GAME_OVER') {
+          setMatchResult('LOSS');
+        } else {
+          setMatchResult('WIN');
+        }
+        return;
+      }
+
       const now = Date.now();
       const deltaMs = now - lastTime;
       lastTime = now;
@@ -90,14 +107,14 @@ export default function BattleScreen() {
       }
 
       // 2. OPPONENT LOGIC
-      const currentAiState = opponentEngine.getState();
+      const currentAiStateAfterGarbage = opponentEngine.getState();
 
-      if (currentAiState.activePiece && !aiThinkingRef.current) {
+      if (currentAiStateAfterGarbage.activePiece && !aiThinkingRef.current) {
         aiThinkingRef.current = true;
 
-        opponent.getNextMove(currentAiState.grid, {
-          gem1: currentAiState.activePiece.gems[0],
-          gem2: currentAiState.activePiece.gems[1]
+        opponent.getNextMove(currentAiStateAfterGarbage.grid, {
+          gem1: currentAiStateAfterGarbage.activePiece.gems[0],
+          gem2: currentAiStateAfterGarbage.activePiece.gems[1]
         }).then(move => {
           opponentEngine.applyMove(move);
         }).catch(err => {
@@ -109,17 +126,6 @@ export default function BattleScreen() {
 
       opponentEngine.tick(deltaMs);
       setOpponentGameState({ ...opponentEngine.getState() });
-
-      // 3. WIN/LOSS CONDITIONS
-      if (newState.status === 'GAME_OVER' || currentAiState.status === 'GAME_OVER') {
-        clearInterval(interval);
-
-        if (newState.status === 'GAME_OVER') {
-          setMatchResult('LOSS');
-        } else {
-          setMatchResult('WIN');
-        }
-      }
     }, 50);
 
     return () => clearInterval(interval);
