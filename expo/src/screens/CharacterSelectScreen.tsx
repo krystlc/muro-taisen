@@ -3,16 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GameButton, ScreenShell, gameColors } from '../components/game-ui';
-import { useGameStore, type CharacterName } from '../store/useGameStore';
-
-const characters: { accent: string; name: CharacterName }[] = [
-  { accent: '#56d8ff', name: 'MIZU' },
-  { accent: '#ff6ea8', name: 'KIBA' },
-  { accent: '#ffd166', name: 'RAI' },
-  { accent: '#c084fc', name: 'KAGE' },
-  { accent: '#ef4444', name: 'SHIN' },
-  { accent: '#4ade80', name: 'ZARA' },
-];
+import { useGameStore } from '../store/useGameStore';
+import { CHARACTERS } from '../core/models/Characters';
 
 export default function CharacterSelectScreen() {
   const router = useRouter();
@@ -33,7 +25,7 @@ export default function CharacterSelectScreen() {
       title="Select character"
     >
       <View style={styles.list}>
-        {characters.map((character) => {
+        {CHARACTERS.map((character) => {
           const selected = character.name === selectedCharacter;
 
           return (

@@ -10,6 +10,7 @@ import { useGameStore } from '../store/useGameStore';
 import { InputController } from '@/input/InputController';
 import { AIOpponent, AIDifficulty } from '@/core/opponent/AIOpponent';
 import { Opponent } from '@/core/opponent/Opponent';
+import { CHARACTERS } from '../core/models/Characters';
 
 import { NextPiecePanel, MainBoard, OpponentMiniBoard } from '@/rendering/components/BattleComponents';
 
@@ -17,6 +18,7 @@ export default function BattleScreen() {
   const router = useRouter();
   const player1 = useGameStore((state) => state.player1);
   const player2 = useGameStore((state) => state.player2);
+  const setPlayer2 = useGameStore((state) => state.setPlayer2Character);
   const difficulty = useGameStore((state) => state.difficulty);
 
   const getAIDifficulty = (label: string): AIDifficulty => {
@@ -173,6 +175,16 @@ export default function BattleScreen() {
     }
   }
 
+  const handleNextOpponent = () => {
+    const currentIndex = CHARACTERS.findIndex(c => c.name === player2.name);
+    const nextIndex = (currentIndex + 1) % CHARACTERS.length;
+    const nextOpponent = CHARACTERS[nextIndex];
+
+    setPlayer2(nextOpponent.name);
+    opponentRef.current = new AIOpponent('ai-1', nextOpponent.name, getAIDifficulty(difficulty));
+    handlePlayAgain();
+  };
+
   const handlePlayAgain = () => {
     setPhase('READY');
     setMatchResult(null); // <-- Clear previous result
@@ -228,7 +240,7 @@ export default function BattleScreen() {
               <View style={styles.buttonRow}>
                 <GameButton
                   label="Next Opponent"
-                  onPress={() => router.replace('/select-opponent' as any)}
+                  onPress={handleNextOpponent}
                   variant="primary"
                 />
                 <GameButton
