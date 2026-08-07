@@ -59,7 +59,7 @@ export function OpponentMiniBoard({ opponentGrid }: { opponentGrid: any[][] }) {
 
 const styles = StyleSheet.create({
   sidePanel: {
-    width: 70, // Slightly narrower so the main board has room
+    width: 100, // Slightly narrower so the main board has room
     alignItems: 'center',
     paddingTop: 10, // Bring them closer to the VS bar
   },
@@ -97,8 +97,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   miniBoardContainer: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
     backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 4,
     borderRadius: 4,
   },
   row: {

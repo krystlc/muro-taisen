@@ -4,7 +4,6 @@ import { Gem } from '../models/Gem';
 // 12 visible rows + 1 hidden overflow row at the top
 export const BOARD_ROWS = 13;
 export const BOARD_COLS = 6;
-export const SPAWN_COLUMN = 3; // 4th column from left (0-indexed)
 
 export type BoardGrid = (Gem | null)[][];
 

@@ -5,11 +5,17 @@ import { GameEngine } from '../GameEngine';
 describe('Active Piece & Input Mechanics', () => {
   it('should move the active piece left and right based on input', () => {
     const engine = new GameEngine('test_seed');
-    // Assuming piece spawns at column 3
-    engine.queueInput('MOVE_LEFT');
-    engine.tick(16); // Advance one frame
-
-    expect(engine.getState().activePiece?.column).toBe(2);
+    const startCol = engine.getState().activePiece!.column;
+    
+    if (startCol > 0) {
+        engine.queueInput('MOVE_LEFT');
+        engine.tick(16);
+        expect(engine.getState().activePiece?.column).toBe(startCol - 1);
+    } else {
+        engine.queueInput('MOVE_RIGHT');
+        engine.tick(16);
+        expect(engine.getState().activePiece?.column).toBe(startCol + 1);
+    }
   });
 
   it('should block movement if the piece hits the left or right wall', () => {

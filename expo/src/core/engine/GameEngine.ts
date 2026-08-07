@@ -1,12 +1,11 @@
 // Main tick loop & input dispatch
-import { BOARD_COLS, BOARD_ROWS, BoardGrid, Board, SPAWN_COLUMN } from './Board';
+import { BOARD_COLS, BOARD_ROWS, BoardGrid, Board } from './Board';
 import { Gem, GemColor, GemType } from '../models/Gem';
 import { PRNG } from './PRNG';
 import { GameStateValidator, GameStatus } from './GameStateValidator';
 import { InputAction } from '../../input/InputManager';
 import { Merger } from './Merger';
 import { ChainResolver } from './ChainResolver';
-import { GameLogger } from './GameLogger';
 
 export type PieceRotation = 0 | 90 | 180 | 270;
 
@@ -231,7 +230,7 @@ export class GameEngine {
         generateGem(`piece-${pieceId}-partner`, partnerColor),
       ],
       row: BOARD_ROWS - 3,
-      column: SPAWN_COLUMN,
+      column: this.prng.nextInt(0, BOARD_COLS),
       rotation: 0,
     };
   }

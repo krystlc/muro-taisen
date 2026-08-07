@@ -1,7 +1,6 @@
 import { GameEngine } from '../GameEngine';
 import { GemColor, GemType } from '../../models/Gem';
 import { describe, beforeEach, test, expect, it } from 'vitest';
-import { SPAWN_COLUMN } from '../Board';
 
 describe('GameEngine Core Mechanics', () => {
   let engine: GameEngine;
@@ -108,9 +107,10 @@ describe('GameEngine Core Mechanics', () => {
 
   test('triggers GAME_OVER only when the spawn column at top rows is blocked', () => {
     const grid = engine.getState().grid;
+    const spawnCol = engine.getState().activePiece!.column;
 
     // Block the top row index 12 as defined in GameStateValidator
-    grid[12][SPAWN_COLUMN] = { id: 'block-spawn-12', color: 'RED' as any, type: GemType.NORMAL };
+    grid[12][spawnCol] = { id: 'block-spawn-12', color: 'RED' as any, type: GemType.NORMAL };
 
     engine.queueInput('HARD_DROP');
     engine.tick(0);
