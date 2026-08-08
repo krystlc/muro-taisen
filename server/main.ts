@@ -5,13 +5,32 @@ import { encode, decode } from "@gz/jwt";
 // ---------------------------------------------------------
 // 1. JWT & Crypto Setup
 // ---------------------------------------------------------
-// In production, always set this environment variable!
 const JWT_SECRET = Deno.env.get("JWT_SECRET") || "super-secret-fallback-key-32-chars!";
+
+// ---------------------------------------------------------
+// 2. CORS Helpers
+// ---------------------------------------------------------
+const allowedOrigins = new Set([
+  "http://localhost:8081",
+  "https://app.example.com",
+]);
+
+function corsHeaders(req: Request): Headers {
+  const headers = new Headers();
+  const origin = req.headers.get("origin");
+  if (origin && allowedOrigins.has(origin)) {
+    headers.set("access-control-allow-origin", origin);
+    headers.set("vary", "origin");
+  }
+  return headers;
+}
 
 interface ClientSession {
   ws: WebSocket;
-  userId: string;
+  isAuthenticated: boolean;
+  userId?: string;
   roomId?: string;
+  authTimeout?: number;
 }
 
 const clients = new Map<WebSocket, ClientSession>();
@@ -19,60 +38,114 @@ const rooms = new Map<string, Set<ClientSession>>();
 const matchmakingQueue = new Set<ClientSession>(); // For "Quick Play"
 
 // ---------------------------------------------------------
-// 2. Global Player Count Broadcast (Heartbeat)
+// 3. Global Player Count Broadcast (Heartbeat)
 // ---------------------------------------------------------
 setInterval(() => {
-  const count = clients.size;
-  const message = JSON.stringify({ type: "GLOBAL_STATE", onlinePlayers: count });
+  // Only count authenticated players
+  let authenticatedCount = 0;
   for (const client of clients.values()) {
-    if (client.ws.readyState === WebSocket.OPEN) {
+    if (client.isAuthenticated) authenticatedCount++;
+  }
+
+  const message = JSON.stringify({ type: "GLOBAL_STATE", onlinePlayers: authenticatedCount });
+
+  for (const client of clients.values()) {
+    // Only broadcast to players who have successfully authenticated
+    if (client.ws.readyState === WebSocket.OPEN && client.isAuthenticated) {
       client.ws.send(message);
     }
   }
 }, 5000); // Broadcast every 5 seconds
 
 // ---------------------------------------------------------
-// 3. Server Request Handler
+// 4. Server Request Handler
 // ---------------------------------------------------------
 Deno.serve({ port: 8080 }, async (req) => {
+  const headers = corsHeaders(req);
+
+  if (req.method === "OPTIONS") {
+    headers.set("access-control-allow-methods", "POST, OPTIONS");
+    headers.set("access-control-allow-headers", "content-type, authorization");
+    headers.set("access-control-max-age", "86400");
+    return new Response(null, { status: 204, headers });
+  }
+
   const url = new URL(req.url);
 
   // --- REST endpoint: Anonymous JWT Issuance ---
   if (req.method === "POST" && url.pathname === "/api/auth/guest") {
     const userId = `guest_${crypto.randomUUID().substring(0, 8)}`;
-
-    const payload = {
-      userId,
-    };
+    const payload = { userId };
     const token = await encode(payload, JWT_SECRET, { algorithm: 'HS512' });
 
-    return Response.json({ userId, token });
+    return Response.json({ userId, token }, { headers });
   }
 
   // --- WebSocket Upgrade Endpoint ---
   if (req.headers.get("upgrade") === "websocket") {
-    const token = url.searchParams.get("token");
-    if (!token) return new Response("Missing Token", { status: 401 });
-
-    const payload = await decode(token, JWT_SECRET, { algorithm: 'HS512' });
-    if (!payload) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
     const { socket: ws, response } = Deno.upgradeWebSocket(req);
-    const userId = payload.sub;
 
     ws.onopen = () => {
-      log.info(`Player ${userId} connected.`);
-      clients.set(ws, { ws, userId });
-      // Send immediate player count upon connection
-      ws.send(JSON.stringify({ type: "GLOBAL_STATE", onlinePlayers: clients.size }));
+      log.info("New connection established. Awaiting authentication...");
+
+      // Set a strict 3-second timeout for the client to prove who they are
+      const authTimeout = setTimeout(() => {
+        const session = clients.get(ws);
+        if (session && !session.isAuthenticated) {
+          log.warning("Connection closed: Authentication timeout.");
+          ws.close(1008, "Policy Violation: Authentication timeout");
+        }
+      }, 3000);
+
+      clients.set(ws, {
+        ws,
+        isAuthenticated: false,
+        authTimeout
+      });
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
+      const session = clients.get(ws);
+      if (!session) return;
+
       try {
         const message = JSON.parse(event.data);
-        handleClientMessage(clients.get(ws)!, message);
+
+        // --- AUTHENTICATION GATE ---
+        if (!session.isAuthenticated) {
+          if (message.type === "AUTH" && message.token) {
+            try {
+              const payload = await decode(message.token, JWT_SECRET, { algorithm: 'HS512' });
+
+              if (!payload || !payload.userId) {
+                throw new Error("Invalid JWT payload");
+              }
+
+              // Upgrade the session to authenticated
+              session.isAuthenticated = true;
+              session.userId = payload.userId as string;
+              clearTimeout(session.authTimeout);
+
+              log.info(`Player ${session.userId} authenticated successfully.`);
+
+              // Welcome the player and send immediate global state
+              ws.send(JSON.stringify({ type: "AUTH_SUCCESS", userId: session.userId }));
+              ws.send(JSON.stringify({ type: "GLOBAL_STATE", onlinePlayers: getAuthenticatedCount() }));
+            } catch (err) {
+              log.error(`Auth failed: ${err}`);
+              ws.close(1008, "Invalid Token");
+            }
+          } else {
+            // Force close if their first message isn't an AUTH payload
+            log.warning("Connection closed: First message was not AUTH.");
+            ws.close(1008, "Expected AUTH message");
+          }
+          return;
+        }
+
+        // --- AUTHENTICATED MESSAGE ROUTING ---
+        handleClientMessage(session, message);
+
       } catch (e) {
         log.error("Failed to parse message", e);
       }
@@ -81,11 +154,15 @@ Deno.serve({ port: 8080 }, async (req) => {
     ws.onclose = () => {
       const session = clients.get(ws);
       if (session) {
+        clearTimeout(session.authTimeout);
         matchmakingQueue.delete(session);
         leaveRoom(session);
+
+        if (session.userId) {
+          log.info(`Player ${session.userId} disconnected.`);
+        }
       }
       clients.delete(ws);
-      log.info(`Player ${userId} disconnected.`);
     };
 
     return response;
@@ -94,12 +171,23 @@ Deno.serve({ port: 8080 }, async (req) => {
   return new Response("Puzzle Server Active", { status: 200 });
 });
 
+// Helper for immediate heartbeat updates
+function getAuthenticatedCount(): number {
+  let count = 0;
+  for (const client of clients.values()) {
+    if (client.isAuthenticated) count++;
+  }
+  return count;
+}
+
 // ---------------------------------------------------------
-// 4. Matchmaking & Game Logic
+// 5. Matchmaking & Game Logic
 // ---------------------------------------------------------
 function handleClientMessage(session: ClientSession, msg: any) {
-  switch (msg.type) {
+  // Safety check to ensure userId exists for game logic
+  if (!session.userId) return;
 
+  switch (msg.type) {
     // PRONG A: Quick Play (Lowest Friction)
     case "QUICK_MATCH": {
       if (matchmakingQueue.size > 0) {
@@ -160,7 +248,7 @@ function joinRoom(session: ClientSession, roomId: string) {
 }
 
 function leaveRoom(session: ClientSession) {
-  if (!session.roomId) return;
+  if (!session.roomId || !session.userId) return;
   const room = rooms.get(session.roomId);
   if (room) {
     room.delete(session);
@@ -178,7 +266,7 @@ function startMatch(roomId: string) {
   broadcastToRoom(roomId, {
     type: "START_MATCH",
     seed: matchSeed,
-    players: roomClients.map(c => c.userId)
+    players: roomClients.map(c => c.userId) // Safe since they must be authenticated to be in a room
   });
 }
 
