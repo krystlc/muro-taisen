@@ -1,81 +1,102 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, ImageBackground } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { GameButton, ScreenShell, VersusBar } from '../components/game-ui';
+import { GameButton, VersusBar } from '../components/game-ui';
 import { BOARD_COLS, BOARD_ROWS } from '../core/engine/Board';
 import { GameEngine, GameState } from '../core/engine/GameEngine';
 import { useGameStore } from '../store/useGameStore';
 import { InputController } from '@/input/InputController';
-import { AIOpponent, AIDifficulty } from '@/core/opponent/AIOpponent';
-import { Opponent } from '@/core/opponent/Opponent';
-import { CHARACTERS } from '../core/models/Characters';
+import { useGameServerContext } from '../contexts/GameServerContext';
 
 import { NextPiecePanel, MainBoard, OpponentMiniBoard } from '@/rendering/components/BattleComponents';
+import { GameAction } from '@/hooks/useGameServer';
 
 export default function BattleScreen() {
   const router = useRouter();
   const player1 = useGameStore((state) => state.player1);
   const player2 = useGameStore((state) => state.player2);
-  const setPlayer2 = useGameStore((state) => state.setPlayer2Character);
-  const difficulty = useGameStore((state) => state.difficulty);
 
-  const getAIDifficulty = (label: string): AIDifficulty => {
-    switch (label) {
-      case 'MASTER': return 'HARD';
-      case 'TAISEN': return 'MEDIUM';
-      case 'ROOKIE':
-      default: return 'EASY';
-    }
-  };
+  // Hook into the websocket server connection
+  const { sendGameAction, opponentAction, matchStarted, quickMatch, queueStatus } = useGameServerContext();
 
   const engineRef = useRef<GameEngine | null>(null);
   const opponentEngineRef = useRef<GameEngine | null>(null);
-  const opponentRef = useRef<Opponent | null>(null);
 
+  // Initialize engines once match data (seed) arrives from the server
+  const seed = matchStarted?.seed || 123;
   if (!engineRef.current) {
-    engineRef.current = new GameEngine('match_seed_123');
-    opponentEngineRef.current = new GameEngine('opponent_seed_456');
-    opponentRef.current = new AIOpponent('ai-1', player2.name, getAIDifficulty(difficulty));
+    engineRef.current = new GameEngine(`match_seed_${seed}`);
+    opponentEngineRef.current = new GameEngine(`match_seed_${seed}`); // Same seed ensures identical piece sequence!
   }
 
-  // Cast these to non-null for subsequent use, as we know they are initialized
   const engine = engineRef.current!;
   const opponentEngine = opponentEngineRef.current!;
-  const opponent = opponentRef.current!;
 
-  const [gameState, setGameState] = useState<GameState>(() => engineRef.current!.getState());
-  const [opponentGameState, setOpponentGameState] = useState<GameState>(() => opponentEngineRef.current!.getState());
-  const [phase, setPhase] = useState<'READY' | '3' | '2' | '1' | 'FIGHT'>('READY');
-
-  useEffect(() => {
-    const sequence = async () => {
-      await new Promise((r) => setTimeout(r, 600)); setPhase('3');
-      await new Promise((r) => setTimeout(r, 600)); setPhase('2');
-      await new Promise((r) => setTimeout(r, 600)); setPhase('1');
-      await new Promise((r) => setTimeout(r, 600)); setPhase('FIGHT');
-    };
-    sequence();
-  }, []);
-
-  const lastScoreRef = useRef(0);
-  const aiThinkingRef = useRef(false);
+  const [gameState, setGameState] = useState<GameState>(() => engine.getState());
+  const [opponentGameState, setOpponentGameState] = useState<GameState>(() => opponentEngine.getState());
+  const [phase, setPhase] = useState<'MATCHMAKING' | 'READY' | '3' | '2' | '1' | 'FIGHT'>('MATCHMAKING');
   const [matchResult, setMatchResult] = useState<'WIN' | 'LOSS' | null>(null);
 
+  const lastScoreRef = useRef(0);
+  const opponentLastScoreRef = useRef(0);
+
+  // Auto-trigger quick match on mount if not matched yet
+  useEffect(() => {
+    if (!matchStarted) {
+      quickMatch();
+    }
+  }, [matchStarted]);
+
+  // Once server sends START_MATCH, kick off the countdown sequence
+  useEffect(() => {
+    if (matchStarted && phase === 'MATCHMAKING') {
+      const sequence = async () => {
+        setPhase('READY');
+        await new Promise((r) => setTimeout(r, 600)); setPhase('3');
+        await new Promise((r) => setTimeout(r, 600)); setPhase('2');
+        await new Promise((r) => setTimeout(r, 600)); setPhase('1');
+        await new Promise((r) => setTimeout(r, 600)); setPhase('FIGHT');
+      };
+      sequence();
+    }
+  }, [matchStarted, phase]);
+
+  // Handle incoming remote actions from the online opponent
+  useEffect(() => {
+    if (!opponentAction) return;
+
+    // Apply opponent's network actions (e.g., DROP, ROTATE) to their engine simulation
+    switch (opponentAction.type) {
+      case 'ROTATE':
+        opponentEngine.queueInput('ROTATE_CW');
+        break;
+      case 'DROP':
+        opponentEngine.queueInput('HARD_DROP');
+        break;
+      case 'SEND_GARBAGE':
+        // If opponent attacked us, queue garbage locally
+        engine.queueGarbage(opponentAction.payload.lines);
+        engine.processGarbageQueue(0);
+        break;
+    }
+  }, [opponentAction]);
+
+  // Main Game Loop Tick
   useEffect(() => {
     if (phase !== 'FIGHT') return;
     let lastTime = Date.now();
 
     const interval = setInterval(() => {
       const currentState = engine.getState();
-      const currentAiState = opponentEngine.getState();
+      const currentOpponentState = opponentEngine.getState();
 
-      // Check for WIN/LOSS CONDITIONS before ticking
-      if (currentState.status === 'GAME_OVER' || currentAiState.status === 'GAME_OVER') {
+      // Check Win/Loss conditions
+      if (currentState.status === 'GAME_OVER' || currentOpponentState.status === 'GAME_OVER') {
         clearInterval(interval);
         setGameState({ ...currentState });
-        setOpponentGameState({ ...currentAiState });
+        setOpponentGameState({ ...currentOpponentState });
 
         if (currentState.status === 'GAME_OVER') {
           setMatchResult('LOSS');
@@ -89,138 +110,98 @@ export default function BattleScreen() {
       const deltaMs = now - lastTime;
       lastTime = now;
 
-      // 1. HUMAN LOGIC
+      // 1. HUMAN LOCAL ENGINE TICK & INPUT BROADCAST
       engine.tick(deltaMs);
       const newState = engine.getState();
       setGameState({ ...newState });
 
-      // Calculate Garbage safely
+      // Check if player scored points -> Calculate and Send Garbage to Server
       if (newState.score > lastScoreRef.current) {
         const scoreDiff = newState.score - lastScoreRef.current;
+        const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
 
-        // Give at least 1 line of garbage for any scoring event,
-        // or scale it down so smaller score bumps still trigger attacks
-        const garbageLines = Math.max(1, Math.floor(scoreDiff / 1.5));
-
-        opponentEngine.queueGarbage(garbageLines);
-        opponentEngine.processGarbageQueue(0);
+        // Broadcast attack to the server so it routes to the opponent
+        sendGameAction({
+          type: 'SEND_GARBAGE',
+          payload: { lines: garbageLines }
+        });
 
         lastScoreRef.current = newState.score;
       }
 
-      // 2. OPPONENT LOGIC
-      const currentAiStateAfterGarbage = opponentEngine.getState();
-
-      if (currentAiStateAfterGarbage.activePiece && !aiThinkingRef.current) {
-        aiThinkingRef.current = true;
-
-        opponent.getNextMove(currentAiStateAfterGarbage.grid, {
-          gem1: currentAiStateAfterGarbage.activePiece.gems[0],
-          gem2: currentAiStateAfterGarbage.activePiece.gems[1]
-        }).then(move => {
-          opponentEngine.applyMove(move);
-        }).catch(err => {
-          console.error("AI computation failed", err);
-        }).finally(() => {
-          aiThinkingRef.current = false;
-        });
-      }
-
+      // 2. REMOTE OPPONENT ENGINE TICK (Simulated smoothly via shared seed & action sync)
       opponentEngine.tick(deltaMs);
       setOpponentGameState({ ...opponentEngine.getState() });
+
     }, 50);
 
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Build Human Composite View
+  // Hook into local input actions to broadcast them to the server
+  // (Pass a wrapper around your engine actions into InputController or call sendGameAction on moves)
+
+  // Build Human Composite View Grid
   const displayGrid = gameState.grid.map((row) => [...row]);
   const activePiece = gameState.activePiece;
-
   if (activePiece) {
     const [pivotRow, pivotCol] = [activePiece.row, activePiece.column];
-    const offsets: Record<number, [number, number]> = {
-      0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1],
-    };
+    const offsets: Record<number, [number, number]> = { 0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1] };
     const [rOff, cOff] = offsets[activePiece.rotation] || [1, 0];
-    const partnerRow = pivotRow + rOff;
-    const partnerCol = pivotCol + cOff;
-
     if (pivotRow >= 0 && pivotRow < BOARD_ROWS && pivotCol >= 0 && pivotCol < BOARD_COLS) {
       displayGrid[pivotRow][pivotCol] = activePiece.gems[0];
     }
-    if (partnerRow >= 0 && partnerRow < BOARD_ROWS && partnerCol >= 0 && partnerCol < BOARD_COLS) {
-      displayGrid[partnerRow][partnerCol] = activePiece.gems[1];
+    const pRow = pivotRow + rOff;
+    const pCol = pivotCol + cOff;
+    if (pRow >= 0 && pRow < BOARD_ROWS && pCol >= 0 && pCol < BOARD_COLS) {
+      displayGrid[pRow][pCol] = activePiece.gems[1];
     }
   }
 
-  // Build Opponent Composite View
+  // Build Opponent Composite View Grid
   const displayOpponentGrid = opponentGameState.grid.map((row) => [...row]);
   const opActivePiece = opponentGameState.activePiece;
-
   if (opActivePiece) {
     const [pivotRow, pivotCol] = [opActivePiece.row, opActivePiece.column];
-    const offsets: Record<number, [number, number]> = {
-      0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1],
-    };
+    const offsets: Record<number, [number, number]> = { 0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1] };
     const [rOff, cOff] = offsets[opActivePiece.rotation] || [1, 0];
-    const partnerRow = pivotRow + rOff;
-    const partnerCol = pivotCol + cOff;
-
     if (pivotRow >= 0 && pivotRow < BOARD_ROWS && pivotCol >= 0 && pivotCol < BOARD_COLS) {
       displayOpponentGrid[pivotRow][pivotCol] = opActivePiece.gems[0];
     }
-    if (partnerRow >= 0 && partnerRow < BOARD_ROWS && partnerCol >= 0 && partnerCol < BOARD_COLS) {
-      displayOpponentGrid[partnerRow][partnerCol] = opActivePiece.gems[1];
+    const pRow = pivotRow + rOff;
+    const pCol = pivotCol + cOff;
+    if (pRow >= 0 && pRow < BOARD_ROWS && pCol >= 0 && pCol < BOARD_COLS) {
+      displayOpponentGrid[pRow][pCol] = opActivePiece.gems[1];
     }
   }
 
-  const handleNextOpponent = () => {
-    const currentIndex = CHARACTERS.findIndex(c => c.name === player2.name);
-    const nextIndex = (currentIndex + 1) % CHARACTERS.length;
-    const nextOpponent = CHARACTERS[nextIndex];
-
-    setPlayer2(nextOpponent.name);
-    opponentRef.current = new AIOpponent('ai-1', nextOpponent.name, getAIDifficulty(difficulty));
-    handlePlayAgain();
-  };
-
-  const handlePlayAgain = () => {
-    setPhase('READY');
-    setMatchResult(null); // <-- Clear previous result
-    lastScoreRef.current = 0; // <-- Reset score tracker too
-    engineRef.current = new GameEngine(`match_seed_${Date.now()}`);
-    opponentEngineRef.current = new GameEngine(`match_seed_${Date.now() + 1}`);
-    setGameState(engineRef.current.getState());
-    setOpponentGameState(opponentEngineRef.current.getState());
-
-    setTimeout(() => {
-      setPhase('FIGHT');
-    }, 100);
+  const handleFindNewMatch = () => {
+    setMatchResult(null);
+    setPhase('MATCHMAKING');
+    engineRef.current = null;
+    opponentEngineRef.current = null;
+    quickMatch();
   };
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* TOP HALF: 3D FIGHTER ARENA PLACEHOLDER */}
       <View style={styles.fighterArena}>
-        <Text style={styles.placeholderText}>[ 3D Fighter Graphics ]</Text>
+        <Text style={styles.placeholderText}>
+          {phase === 'MATCHMAKING' ? (queueStatus || 'Finding Opponent...') : '[ Online 3D Arena ]'}
+        </Text>
       </View>
 
-      {/* HUD DIVIDER */}
       <View style={styles.hudBar}>
-        <VersusBar player1Name={player1.name} player2Name={player2.name} />
+        <VersusBar player1Name={player1.name} player2Name={matchStarted?.players[1] || 'Opponent'} />
       </View>
-
-      {/* BOTTOM HALF: PUZZLE AREA */}
 
       <InputController engineRef={engineRef} enabled={phase === 'FIGHT'}>
         <View style={styles.puzzleArea}>
-
           {phase !== 'FIGHT' ? (
             <View style={styles.centered}>
-              <Text style={styles.countdownText}>{phase}</Text>
+              <Text style={styles.countdownText}>{phase === 'MATCHMAKING' ? 'SEARCHING' : phase}</Text>
             </View>
           ) : (
             <>
@@ -230,108 +211,33 @@ export default function BattleScreen() {
             </>
           )}
 
-          {/* Combined Game Over / Win Overlay */}
           {(gameState.status === 'GAME_OVER' || opponentGameState.status === 'GAME_OVER' || matchResult) && (
             <View style={styles.gameOverOverlay}>
               <Text style={[styles.gameOverText, matchResult === 'WIN' ? styles.winText : styles.lossText]}>
                 {matchResult === 'WIN' ? 'VICTORY!' : 'K.O. / DEFEAT'}
               </Text>
-
               <View style={styles.buttonRow}>
-                <GameButton
-                  label="Next Opponent"
-                  onPress={handleNextOpponent}
-                  variant="primary"
-                />
-                <GameButton
-                  label="Play Again"
-                  onPress={handlePlayAgain}
-                  variant="secondary"
-                />
+                <GameButton label="Find New Match" onPress={handleFindNewMatch} variant="primary" />
               </View>
             </View>
           )}
-
         </View>
       </InputController>
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0c1220',
-  },
-  fighterArena: {
-    flex: 0.4, // Slightly reduced to give more room for puzzle
-    backgroundColor: '#1a2235',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: '#000',
-  },
-  placeholderText: {
-    color: '#475569',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  hudBar: {
-    flex: 0.1,
-    zIndex: 10,
-    justifyContent: 'center',
-  },
-  puzzleArea: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    backgroundColor: '#0f1626',
-    overflow: 'hidden', // Ensure no overflow
-  },
-  // Main board container needs to be tightly constrained
-  mainBoardContainer: {
-    flex: 1, // Stretch as much as possible
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 4,
-    paddingBottom: 10,
-    overflow: 'hidden',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  countdownText: {
-    color: '#00e5ff',
-    fontSize: 64,
-    fontWeight: 'bold',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowRadius: 10,
-  },
-  gameOverOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(12, 18, 32, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  gameOverText: {
-    color: '#ff3366',
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 24,
-  },
-  winText: {
-    color: '#00e5ff',
-  },
-  lossText: {
-    color: '#ff3366',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
+  container: { flex: 1, backgroundColor: '#0c1220' },
+  fighterArena: { flex: 0.4, backgroundColor: '#1a2235', justifyContent: 'center', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#000' },
+  placeholderText: { color: '#475569', fontSize: 20, fontWeight: 'bold' },
+  hudBar: { flex: 0.1, zIndex: 10, justifyContent: 'center' },
+  puzzleArea: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, backgroundColor: '#0f1626', overflow: 'hidden' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  countdownText: { color: '#00e5ff', fontSize: 48, fontWeight: 'bold', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 10 },
+  gameOverOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12, 18, 32, 0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 20 },
+  gameOverText: { fontSize: 36, fontWeight: 'bold', marginBottom: 24 },
+  winText: { color: '#00e5ff' },
+  lossText: { color: '#ff3366' },
+  buttonRow: { flexDirection: 'row', gap: 16 },
 });

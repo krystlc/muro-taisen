@@ -3,11 +3,18 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, ImageBackground, Pressable } from 'react-native';
 
 import { GameButton, gameColors } from '../components/game-ui';
-import { useGameServer } from '../hooks/useGameServer';
+import { useGameServerContext } from '../contexts/GameServerContext';
+import { useEffect } from 'react';
 
 export default function StartScreen() {
   const router = useRouter();
-  const { onlinePlayerCount, quickMatch } = useGameServer();
+  const { onlinePlayerCount, quickMatch, queueStatus, matchStarted } = useGameServerContext();
+
+  useEffect(() => {
+    if (matchStarted) {
+      router.push('/battle');
+    }
+  }, [matchStarted, router]);
 
   return (
     <ImageBackground
@@ -31,7 +38,10 @@ export default function StartScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <GameButton label="QUICK MATCH" onPress={quickMatch} />
+          <GameButton
+            label={queueStatus === 'WAITING' ? "WAITING FOR OPPONENT..." : "QUICK MATCH"}
+            onPress={quickMatch}
+          />
           <GameButton
             label="OFFLINE CAMPAIGN"
             onPress={() => router.push('/difficulty-select')}
@@ -44,7 +54,7 @@ export default function StartScreen() {
           <View style={styles.footerIcons}>
             <Text style={styles.icon}>⚙️</Text>
             <Pressable onPress={() => router.push('/online-players')}>
-                <Text style={styles.icon}>👥</Text>
+              <Text style={styles.icon}>👥</Text>
             </Pressable>
             <Text style={styles.icon}>🛒</Text>
           </View>
