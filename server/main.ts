@@ -1,632 +1,196 @@
-import {
-  Application,
-  Router,
-  Context,
-} from "https://deno.land/x/oak@v12.0.0/mod.ts";
+// To run: deno run --allow-net --allow-env server.ts
+import * as log from "jsr:@std/log";
+import { encode, decode } from "@gz/jwt";
 
-// --- WebSocket-related interfaces ---
-interface User {
-  id: string;
-  username: string;
-  socket: WebSocket; // Native WebSocket object
-  status: "online" | "playing" | "offline";
-  invitations: Invitation[];
+// ---------------------------------------------------------
+// 1. JWT & Crypto Setup
+// ---------------------------------------------------------
+// In production, always set this environment variable!
+const JWT_SECRET = Deno.env.get("JWT_SECRET") || "super-secret-fallback-key-32-chars!";
+
+interface ClientSession {
+  ws: WebSocket;
+  userId: string;
+  roomId?: string;
 }
 
-interface Invitation {
-  id: string;
-  senderId: string;
-  senderUsername: string;
-  receiverId: string;
-  status: "pending" | "accepted" | "declined";
-  gameId?: string;
-}
+const clients = new Map<WebSocket, ClientSession>();
+const rooms = new Map<string, Set<ClientSession>>();
+const matchmakingQueue = new Set<ClientSession>(); // For "Quick Play"
 
-interface Game {
-  id: string;
-  player1Id: string;
-  player2Id: string;
-  matchSeed: string; // Shared seed for deterministic gameplay
-}
-
-// --- High Score API interfaces ---
-interface RegisteredUser {
-  id: string; // The stateless token
-  username: string;
-}
-
-interface Score {
-  username: string;
-  score: number;
-}
-
-class GameServer {
-  private app: Application;
-  private router: Router;
-  private kv!: Deno.Kv;
-
-  // WebSocket state
-  private users: Map<string, User> = new Map(); // ws-connection-userId -> User object
-  private games: Map<string, Game> = new Map(); // gameId -> Game object
-  private invitations: Map<string, Invitation> = new Map(); // invitationId -> Invitation object
-
-  // User registration state (in-memory for now, could be moved to KV)
-  private registeredUsers: Map<string, RegisteredUser> = new Map(); // token -> RegisteredUser
-
-  private constructor() {
-    this.app = new Application();
-    this.router = new Router();
-    this.setupRoutes();
-    this.setupMiddleware();
-  }
-
-  public static async create(): Promise<GameServer> {
-    const server = new GameServer();
-    server.kv = await Deno.openKv();
-    return server;
-  }
-
-  private setupMiddleware() {
-    this.app.use(this.router.routes());
-    this.app.use(this.router.allowedMethods());
-  }
-
-  private setupRoutes() {
-    // WebSocket route
-    this.router.get("/ws", this.handleWebSocketConnection.bind(this));
-
-    // High score API routes
-    this.router.post("/register", this.handleRegister.bind(this));
-    this.router.post("/scores", this.handleSubmitScore.bind(this));
-    this.router.get("/scores", this.handleGetScores.bind(this));
-    this.router.get("/me", this.handleGetMe.bind(this));
-  }
-
-  // --- High Score API Handlers ---
-
-  private handleGetMe(ctx: Context) {
-    const token = ctx.request.headers.get("Authorization")?.split(" ")[1];
-    if (!token || !this.registeredUsers.has(token)) {
-      ctx.response.status = 401;
-      ctx.response.body = { error: "Unauthorized. Invalid token." };
-      return;
-    }
-    const user = this.registeredUsers.get(token)!;
-    ctx.response.status = 200;
-    ctx.response.body = { username: user.username };
-  }
-
-  private async handleRegister(ctx: Context) {
-    try {
-      const body = ctx.request.body({ type: "json" });
-      const { username } = await body.value;
-
-      if (!username || typeof username !== "string" || username.length < 3) {
-        ctx.response.status = 400;
-        ctx.response.body = {
-          error: "Invalid username. Must be a string of at least 3 characters.",
-        };
-        return;
-      }
-
-      const token = crypto.randomUUID();
-      const newUser: RegisteredUser = { id: token, username };
-      this.registeredUsers.set(token, newUser);
-
-      console.log(`New user registered: ${username} with token ${token}`);
-
-      ctx.response.status = 201;
-      ctx.response.body = { token };
-    } catch (e) {
-      console.error("Error during registration:", e);
-      ctx.response.status = 500;
-      ctx.response.body = { error: "Internal server error." };
+// ---------------------------------------------------------
+// 2. Global Player Count Broadcast (Heartbeat)
+// ---------------------------------------------------------
+setInterval(() => {
+  const count = clients.size;
+  const message = JSON.stringify({ type: "GLOBAL_STATE", onlinePlayers: count });
+  for (const client of clients.values()) {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(message);
     }
   }
+}, 5000); // Broadcast every 5 seconds
 
-  private async handleSubmitScore(ctx: Context) {
-    try {
-      const token = ctx.request.headers.get("Authorization")?.split(" ")[1];
-      if (!token || !this.registeredUsers.has(token)) {
-        ctx.response.status = 401;
-        ctx.response.body = { error: "Unauthorized. Invalid token." };
-        return;
-      }
+// ---------------------------------------------------------
+// 3. Server Request Handler
+// ---------------------------------------------------------
+Deno.serve({ port: 8080 }, async (req) => {
+  const url = new URL(req.url);
 
-      const user = this.registeredUsers.get(token)!;
-      const body = ctx.request.body({ type: "json" });
-      const { score } = await body.value;
+  // --- REST endpoint: Anonymous JWT Issuance ---
+  if (req.method === "POST" && url.pathname === "/api/auth/guest") {
+    const userId = `guest_${crypto.randomUUID().substring(0, 8)}`;
 
-      if (typeof score !== "number") {
-        ctx.response.status = 400;
-        ctx.response.body = { error: "Invalid score. Must be a number." };
-        return;
-      }
+    const payload = {
+      userId,
+    };
+    const token = await encode(payload, JWT_SECRET, { algorithm: 'HS512' });
 
-      const scoreRecord = {
-        username: user.username,
-        score,
-        submittedAt: new Date(),
-      };
-      await this.kv.set(["scores", Date.now()], scoreRecord);
-
-      console.log(`New score of ${score} submitted for ${user.username}`);
-
-      ctx.response.status = 201;
-      ctx.response.body = { message: "Score submitted successfully." };
-    } catch (e) {
-      console.error("Error submitting score:", e);
-      ctx.response.status = 500;
-      ctx.response.body = { error: "Internal server error." };
-    }
+    return Response.json({ userId, token });
   }
 
-  private async handleGetScores(ctx: Context) {
-    const scores: Score[] = [];
-    const iter = this.kv.list<Score>({ prefix: ["scores"] });
-    for await (const res of iter) {
-      scores.push(res.value);
+  // --- WebSocket Upgrade Endpoint ---
+  if (req.headers.get("upgrade") === "websocket") {
+    const token = url.searchParams.get("token");
+    if (!token) return new Response("Missing Token", { status: 401 });
+
+    const payload = await decode(token, JWT_SECRET, { algorithm: 'HS512' });
+    if (!payload) {
+      return new Response("Unauthorized", { status: 401 });
     }
-    scores.sort((a, b) => b.score - a.score);
-    ctx.response.status = 200;
-    ctx.response.body = scores.slice(0, 10);
-  }
 
-  // --- WebSocket Handlers ---
+    const { socket: ws, response } = Deno.upgradeWebSocket(req);
+    const userId = payload.sub;
 
-  private async handleWebSocketConnection(ctx: Context) {
-    const ws = await ctx.upgrade();
-    const userId = crypto.randomUUID();
+    ws.onopen = () => {
+      log.info(`Player ${userId} connected.`);
+      clients.set(ws, { ws, userId });
+      // Send immediate player count upon connection
+      ws.send(JSON.stringify({ type: "GLOBAL_STATE", onlinePlayers: clients.size }));
+    };
 
-    console.log(`New potential connection from an unknown user.`);
-
-    ws.onmessage = async (event) => {
-      if (typeof event.data !== "string") {
-        console.warn(
-          `Received non-string WebSocket message from ${userId}. Ignoring.`,
-        );
-        return;
-      }
-
-      const message = JSON.parse(event.data);
-
-      if (message.type === "register" && message.username) {
-        if (!this.users.has(userId)) {
-          const user: User = {
-            id: userId,
-            username: message.username,
-            socket: ws,
-            status: "online",
-            invitations: [],
-          };
-          this.users.set(userId, user);
-          console.log(
-            `User ${user.username} (${userId}) connected and registered for WebSocket.`,
-          );
-
-          this.sendToUser(userId, {
-            type: "connected",
-            userId: userId,
-            username: user.username,
-          });
-          this.sendOnlineUsersUpdate();
-        } else {
-          console.warn(
-            `User ${message.username} (${userId}) sent another register message.`,
-          );
-        }
-      } else {
-        const user = this.users.get(userId);
-        if (user) {
-          this.handleWebSocketMessage(userId, message);
-        } else {
-          console.warn(
-            `Unregistered user (${userId}) sent message: ${message.type}. Asking to register.`,
-          );
-          this.sendToSocket(ws, {
-            type: "error",
-            message: "Please register your username first.",
-          });
-        }
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        handleClientMessage(clients.get(ws)!, message);
+      } catch (e) {
+        log.error("Failed to parse message", e);
       }
     };
 
     ws.onclose = () => {
-      console.log(`User ${userId} disconnected.`);
-      this.removeUser(userId);
-      this.sendOnlineUsersUpdate();
-    };
-
-    ws.onerror = (event) => {
-      console.error(`WebSocket error for user ${userId}:`, event);
-      this.removeUser(userId);
-      this.sendOnlineUsersUpdate();
-    };
-  }
-
-  private handleWebSocketMessage(userId: string, message: any) {
-    const user = this.users.get(userId);
-    if (!user) {
-      console.error(`Message received for unknown user ID: ${userId}`);
-      return;
-    }
-
-    switch (message.type) {
-      case "invite_player":
-        this.handleInvitePlayer(userId, message.targetUserId);
-        break;
-      case "accept_invite":
-        this.handleAcceptInvite(userId, message.invitationId);
-        break;
-      case "decline_invite":
-        this.handleDeclineInvite(userId, message.invitationId);
-        break;
-      case "game_move":
-        this.handleGameMove(userId, message.gameId, message.move);
-        break;
-      case "get_online_users":
-        this.sendOnlineUsers(userId);
-        break;
-      case "get_invitations":
-        this.sendInvitations(userId);
-        break;
-      default:
-        console.warn(
-          `Unknown message type from user ${user.username}: ${message.type}`,
-        );
-        this.sendToUser(userId, {
-          type: "error",
-          message: "Unknown message type.",
-        });
-    }
-  }
-
-  private handleGameMove(senderId: string, gameId: string, move: any) {
-    const game = this.games.get(gameId);
-    if (!game) {
-      this.sendToUser(senderId, { type: "error", message: "Game not found." });
-      return;
-    }
-
-    if (senderId !== game.player1Id && senderId !== game.player2Id) {
-      this.sendToUser(senderId, {
-        type: "error",
-        message: "You are not part of this game.",
-      });
-      return;
-    }
-
-    // Forward the move directly to the other player
-    const otherPlayerId =
-      senderId === game.player1Id ? game.player2Id : game.player1Id;
-    this.sendToUser(otherPlayerId, {
-      type: "opponent_game_move",
-      gameId: gameId,
-      move: move,
-    });
-  }
-
-  private sendToUser(userId: string, message: any) {
-    const user = this.users.get(userId);
-    if (user && user.socket.readyState === WebSocket.OPEN) {
-      try {
-        user.socket.send(JSON.stringify(message));
-      } catch (e) {
-        console.error(`Error sending message to user ${userId}:`, e);
-        user.socket.close();
+      const session = clients.get(ws);
+      if (session) {
+        matchmakingQueue.delete(session);
+        leaveRoom(session);
       }
-    }
-  }
-
-  private sendToSocket(socket: WebSocket, message: any) {
-    if (socket.readyState === WebSocket.OPEN) {
-      try {
-        socket.send(JSON.stringify(message));
-      } catch (e) {
-        console.error(`Error sending message to socket:`, e);
-      }
-    }
-  }
-
-  private sendOnlineUsersUpdate() {
-    const onlineUsers = Array.from(this.users.values())
-      .filter((u) => u.status === "online")
-      .map((u) => ({ id: u.id, username: u.username }));
-
-    this.users.forEach((user) => {
-      if (user.status === "online" || user.status === "playing") {
-        this.sendToUser(user.id, {
-          type: "online_users_update",
-          users: onlineUsers,
-        });
-      }
-    });
-  }
-
-  private sendOnlineUsers(userId: string) {
-    const onlineUsers = Array.from(this.users.values())
-      .filter((u) => u.status === "online")
-      .map((u) => ({ id: u.id, username: u.username }));
-    this.sendToUser(userId, { type: "online_users", users: onlineUsers });
-  }
-
-  private sendInvitations(userId: string) {
-    const user = this.users.get(userId);
-    if (user) {
-      const pendingInvitations = user.invitations.filter(
-        (inv) => inv.status === "pending",
-      );
-      this.sendToUser(userId, {
-        type: "your_invitations",
-        invitations: pendingInvitations,
-      });
-    }
-  }
-
-  private removeUser(userId: string) {
-    const user = this.users.get(userId);
-    if (user) {
-      user.status = "offline";
-      user.socket.close();
-      this.users.delete(userId);
-
-      this.invitations.forEach((inv, invId) => {
-        if (inv.senderId === userId || inv.receiverId === userId) {
-          this.invitations.delete(invId);
-          if (
-            inv.senderId === userId &&
-            inv.receiverId &&
-            inv.status === "pending"
-          ) {
-            this.sendToUser(inv.receiverId, {
-              type: "invitation_cancelled",
-              invitationId: invId,
-              reason: "sender_disconnected",
-            });
-          } else if (
-            inv.receiverId === userId &&
-            inv.senderId &&
-            inv.status === "pending"
-          ) {
-            this.sendToUser(inv.senderId, {
-              type: "invitation_cancelled",
-              invitationId: invId,
-              reason: "receiver_disconnected",
-            });
-          }
-        }
-      });
-      this.games.forEach((game, gameId) => {
-        if (game.player1Id === userId || game.player2Id === userId) {
-          this.endGame(gameId, "player_disconnected");
-        }
-      });
-    }
-  }
-
-  private handleInvitePlayer(senderId: string, targetId: string) {
-    const sender = this.users.get(senderId);
-    const target = this.users.get(targetId);
-
-    if (!sender || sender.status !== "online") {
-      this.sendToUser(senderId, {
-        type: "error",
-        message: "You are not online or available to send invitations.",
-      });
-      return;
-    }
-    if (!target || target.status !== "online") {
-      this.sendToUser(senderId, {
-        type: "error",
-        message: "Target user is not online or available.",
-      });
-      return;
-    }
-    if (senderId === targetId) {
-      this.sendToUser(senderId, {
-        type: "error",
-        message: "You cannot invite yourself.",
-      });
-      return;
-    }
-
-    const existingInvite = Array.from(this.invitations.values()).find(
-      (inv) =>
-        (inv.senderId === senderId &&
-          inv.receiverId === targetId &&
-          inv.status === "pending") ||
-        (inv.senderId === targetId &&
-          inv.receiverId === senderId &&
-          inv.status === "pending"),
-    );
-
-    if (existingInvite) {
-      this.sendToUser(senderId, {
-        type: "error",
-        message:
-          "An invitation is already pending between you and this player.",
-      });
-      return;
-    }
-
-    const invitationId = crypto.randomUUID();
-    const newInvitation: Invitation = {
-      id: invitationId,
-      senderId: senderId,
-      senderUsername: sender.username,
-      receiverId: targetId,
-      status: "pending",
+      clients.delete(ws);
+      log.info(`Player ${userId} disconnected.`);
     };
-    this.invitations.set(invitationId, newInvitation);
-    target.invitations.push(newInvitation);
 
-    this.sendToUser(targetId, {
-      type: "invitation_received",
-      invitationId: invitationId,
-      senderId: senderId,
-      senderUsername: sender.username,
-    });
-    this.sendToUser(senderId, {
-      type: "invitation_sent",
-      targetUsername: target.username,
-    });
+    return response;
   }
 
-  private handleAcceptInvite(receiverId: string, invitationId: string) {
-    const invitation = this.invitations.get(invitationId);
-    const receiver = this.users.get(receiverId);
+  return new Response("Puzzle Server Active", { status: 200 });
+});
 
-    if (
-      !invitation ||
-      invitation.receiverId !== receiverId ||
-      invitation.status !== "pending"
-    ) {
-      this.sendToUser(receiverId, {
-        type: "error",
-        message: "Invalid or expired invitation.",
-      });
-      return;
-    }
-    if (!receiver || receiver.status !== "online") {
-      this.sendToUser(receiverId, {
-        type: "error",
-        message: "You are not online or available.",
-      });
-      this.invitations.delete(invitationId);
-      this.sendToUser(invitation.senderId, {
-        type: "invitation_failed",
-        invitationId: invitationId,
-        reason: "receiver_unavailable",
-      });
-      return;
-    }
+// ---------------------------------------------------------
+// 4. Matchmaking & Game Logic
+// ---------------------------------------------------------
+function handleClientMessage(session: ClientSession, msg: any) {
+  switch (msg.type) {
 
-    const sender = this.users.get(invitation.senderId);
-    if (!sender || sender.status !== "online") {
-      this.sendToUser(receiverId, {
-        type: "error",
-        message: "The inviter is no longer online or available.",
-      });
-      invitation.status = "declined";
-      this.removeInvitationFromUser(receiverId, invitationId);
-      this.invitations.delete(invitationId);
-      return;
+    // PRONG A: Quick Play (Lowest Friction)
+    case "QUICK_MATCH": {
+      if (matchmakingQueue.size > 0) {
+        // Pop the first waiting player out of the queue
+        const opponent = matchmakingQueue.values().next().value!;
+        matchmakingQueue.delete(opponent);
+
+        // Create a room and start the match
+        const roomId = crypto.randomUUID().substring(0, 8);
+        joinRoom(session, roomId);
+        joinRoom(opponent, roomId);
+        startMatch(roomId);
+      } else {
+        matchmakingQueue.add(session);
+        session.ws.send(JSON.stringify({ type: "QUEUE_STATUS", status: "WAITING" }));
+      }
+      break;
     }
 
-    sender.status = "playing";
-    receiver.status = "playing";
+    // PRONG B: Play with Friend / Specific Room URL
+    case "JOIN_ROOM": {
+      // Remove from matchmaking if they were in it
+      matchmakingQueue.delete(session);
 
-    const gameId = crypto.randomUUID();
-    const matchSeed = crypto.randomUUID(); // Deterministic seed
-    const newGame: Game = {
-      id: gameId,
-      player1Id: sender.id,
-      player2Id: receiver.id,
-      matchSeed,
-    };
-    this.games.set(gameId, newGame);
+      const roomId = msg.roomId || crypto.randomUUID().substring(0, 6);
+      joinRoom(session, roomId);
 
-    invitation.status = "accepted";
-    invitation.gameId = gameId;
-
-    this.removeInvitationFromUser(receiverId, invitationId);
-    this.invitations.delete(invitationId);
-
-    this.sendToUser(sender.id, {
-      type: "game_started",
-      gameId: gameId,
-      matchSeed,
-      opponentId: receiver.id,
-      opponentUsername: receiver.username,
-      isPlayer1: true,
-    });
-    this.sendToUser(receiver.id, {
-      type: "game_started",
-      gameId: gameId,
-      matchSeed,
-      opponentId: sender.id,
-      opponentUsername: sender.username,
-      isPlayer1: false,
-    });
-
-    this.sendOnlineUsersUpdate();
-  }
-
-  private handleDeclineInvite(receiverId: string, invitationId: string) {
-    const invitation = this.invitations.get(invitationId);
-
-    if (
-      !invitation ||
-      invitation.receiverId !== receiverId ||
-      invitation.status !== "pending"
-    ) {
-      this.sendToUser(receiverId, {
-        type: "error",
-        message: "Invalid or expired invitation.",
-      });
-      return;
+      const room = rooms.get(roomId)!;
+      if (room.size === 2) {
+        startMatch(roomId);
+      } else {
+        session.ws.send(JSON.stringify({ type: "ROOM_CREATED", roomId }));
+      }
+      break;
     }
 
-    invitation.status = "declined";
-    this.removeInvitationFromUser(receiverId, invitationId);
-    this.invitations.delete(invitationId);
-
-    this.sendToUser(invitation.senderId, {
-      type: "invitation_declined",
-      invitationId: invitationId,
-      declinerUsername: this.users.get(receiverId)?.username || "Unknown User",
-    });
-    this.sendToUser(receiverId, {
-      type: "invitation_declined_confirm",
-      invitationId: invitationId,
-    });
-  }
-
-  private removeInvitationFromUser(userId: string, invitationId: string) {
-    const user = this.users.get(userId);
-    if (user) {
-      user.invitations = user.invitations.filter(
-        (inv) => inv.id !== invitationId,
-      );
+    case "GAME_ACTION": {
+      // Relay inputs for deterministic lockstep physics
+      if (session.roomId) {
+        broadcastToRoom(session.roomId, {
+          type: "OPPONENT_ACTION",
+          userId: session.userId,
+          action: msg.action,
+        }, session.ws); // Exclude the sender so they don't echo their own moves
+      }
+      break;
     }
-  }
-
-  private endGame(gameId: string, reason: string) {
-    const game = this.games.get(gameId);
-    if (!game) return;
-
-    const player1 = this.users.get(game.player1Id);
-    const player2 = this.users.get(game.player2Id);
-
-    if (player1 && player1.status === "playing") {
-      player1.status = "online";
-      this.sendToUser(player1.id, {
-        type: "game_ended",
-        gameId: gameId,
-        reason: reason,
-      });
-    }
-    if (player2 && player2.status === "playing") {
-      player2.status = "online";
-      this.sendToUser(player2.id, {
-        type: "game_ended",
-        gameId: gameId,
-        reason: reason,
-      });
-    }
-
-    this.games.delete(gameId);
-    this.sendOnlineUsersUpdate();
-    console.log(`Game ${gameId} ended due to: ${reason}`);
-  }
-
-  public async start(port: number) {
-    console.log(`Game server listening on http://localhost:${port}`);
-    await this.app.listen({ port });
   }
 }
 
-if (import.meta.main) {
-  const gameServer = await GameServer.create();
-  gameServer.start(8000);
+function joinRoom(session: ClientSession, roomId: string) {
+  leaveRoom(session); // Ensure they aren't in another room
+  session.roomId = roomId;
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, new Set());
+  }
+  rooms.get(roomId)!.add(session);
 }
+
+function leaveRoom(session: ClientSession) {
+  if (!session.roomId) return;
+  const room = rooms.get(session.roomId);
+  if (room) {
+    room.delete(session);
+    broadcastToRoom(session.roomId, { type: "PLAYER_LEFT", userId: session.userId });
+    if (room.size === 0) rooms.delete(session.roomId);
+  }
+  session.roomId = undefined;
+}
+
+function startMatch(roomId: string) {
+  const roomClients = Array.from(rooms.get(roomId)!);
+  // Both players receive the exact same PRNG seed to ensure falling gems are identical
+  const matchSeed = Math.floor(Math.random() * 1000000);
+
+  broadcastToRoom(roomId, {
+    type: "START_MATCH",
+    seed: matchSeed,
+    players: roomClients.map(c => c.userId)
+  });
+}
+
+function broadcastToRoom(roomId: string, payload: any, excludeWs?: WebSocket) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  const data = JSON.stringify(payload);
+  for (const client of room) {
+    if (client.ws !== excludeWs && client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(data);
+    }
+  }
+}
+
+log.info("Server running on http://localhost:8080");

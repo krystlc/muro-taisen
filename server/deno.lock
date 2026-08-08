@@ -1,21 +1,37 @@
 {
-  "version": "4",
+  "version": "5",
   "specifiers": {
+    "jsr:@gz/jwt@0.1": "0.1.0",
+    "jsr:@hig/jwt@*": "0.1.1",
     "jsr:@oak/commons@1": "1.0.1",
     "jsr:@oak/oak@^17.1.4": "17.1.4",
     "jsr:@std/assert@1": "1.0.13",
     "jsr:@std/bytes@1": "1.0.6",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
+    "jsr:@std/encoding@1.0": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/fmt@^1.0.5": "1.0.9",
+    "jsr:@std/fs@^1.0.11": "1.0.22",
     "jsr:@std/http@1": "1.0.16",
     "jsr:@std/internal@^1.0.6": "1.0.7",
+    "jsr:@std/io@~0.225.2": "0.225.3",
+    "jsr:@std/log@*": "0.224.14",
     "jsr:@std/media-types@1": "1.1.0",
     "jsr:@std/path@1": "1.0.9",
     "npm:@types/node@*": "22.12.0",
     "npm:path-to-regexp@^6.3.0": "6.3.0"
   },
   "jsr": {
+    "@gz/jwt@0.1.0": {
+      "integrity": "32b0235cebcb85d363459b20ccaab0d8424fab89883c9f65caa1e2ad37e78e8f"
+    },
+    "@hig/jwt@0.1.1": {
+      "integrity": "d6a921aed4793e41d6154ddda25a493b5fbb442a089971bd528319409cf0b552",
+      "dependencies": [
+        "jsr:@std/encoding@1.0"
+      ]
+    },
     "@oak/commons@1.0.1": {
       "integrity": "889ff210f0b4292591721be07244ecb1b5c118742f5273c70cf30d7cd4184d0c",
       "dependencies": [
@@ -54,6 +70,12 @@
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
+    "@std/fmt@1.0.9": {
+      "integrity": "2487343e8899fb2be5d0e3d35013e54477ada198854e52dd05ed0422eddcabe0"
+    },
+    "@std/fs@1.0.22": {
+      "integrity": "de0f277a58a867147a8a01bc1b181d0dfa80bfddba8c9cf2bacd6747bcec9308"
+    },
     "@std/http@1.0.16": {
       "integrity": "80c8d08c4bfcf615b89978dcefb84f7e880087cf3b6b901703936f3592a06933",
       "dependencies": [
@@ -62,6 +84,17 @@
     },
     "@std/internal@1.0.7": {
       "integrity": "39eeb5265190a7bc5d5591c9ff019490bd1f2c3907c044a11b0d545796158a0f"
+    },
+    "@std/io@0.225.3": {
+      "integrity": "27b07b591384d12d7b568f39e61dff966b8230559122df1e9fd11cc068f7ddd1"
+    },
+    "@std/log@0.224.14": {
+      "integrity": "257f7adceee3b53bb2bc86c7242e7d1bc59729e57d4981c4a7e5b876c808f05e",
+      "dependencies": [
+        "jsr:@std/fmt",
+        "jsr:@std/fs",
+        "jsr:@std/io"
+      ]
     },
     "@std/media-types@1.1.0": {
       "integrity": "c9d093f0c05c3512932b330e3cc1fe1d627b301db33a4c2c2185c02471d6eaa4"
@@ -83,6 +116,9 @@
     "undici-types@6.20.0": {
       "integrity": "sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg=="
     }
+  },
+  "redirects": {
+    "https://deno.land/std/log/mod.ts": "https://deno.land/std@0.224.0/log/mod.ts"
   },
   "remote": {
     "https://deno.land/std@0.178.0/_util/asserts.ts": "178dfc49a464aee693a7e285567b3d0b555dc805ff490505a8aae34f9cfb1462",
@@ -174,6 +210,26 @@
     "https://deno.land/std@0.224.0/crypto/_wasm/lib/deno_std_wasm_crypto.generated.mjs": "7cd490ae1553c97459bd02de4c3f0a552768a85621949b2366003f3cf84b99d7",
     "https://deno.land/std@0.224.0/crypto/_wasm/mod.ts": "e89fbbc3c4722602ff975dd85f18273c7741ec766a9b68f6de4fd1d9876409f8",
     "https://deno.land/std@0.224.0/crypto/crypto.ts": "e58d78f3db111a499261dbab037ec78cc89da0516a50e1f0205665980a3417e3",
+    "https://deno.land/std@0.224.0/fmt/colors.ts": "508563c0659dd7198ba4bbf87e97f654af3c34eb56ba790260f252ad8012e1c5",
+    "https://deno.land/std@0.224.0/fs/exists.ts": "3d38cb7dcbca3cf313be343a7b8af18a87bddb4b5ca1bd2314be12d06533b50f",
+    "https://deno.land/std@0.224.0/io/write_all.ts": "24aac2312bb21096ae3ae0b102b22c26164d3249dff96dbac130958aa736f038",
+    "https://deno.land/std@0.224.0/log/_config.ts": "489e11b6d3c917bf5fc954c5e914c095d3480efd924d1e85f2fc576468581c54",
+    "https://deno.land/std@0.224.0/log/_state.ts": "314c0c31ab9c8f4fb33326ad446757d35f75e5bb21746b7720ed4e3f3a939da1",
+    "https://deno.land/std@0.224.0/log/base_handler.ts": "f03f013dac9c1a226aab60c6f5751b3131cc4f2808720715285e0dab5697a54e",
+    "https://deno.land/std@0.224.0/log/console_handler.ts": "9b17b9025c7d94eab950a25eccca81fd9dd71d063b9f458f149e52db52ab0295",
+    "https://deno.land/std@0.224.0/log/critical.ts": "a8b44a4c6768629d2a506ffe1a1a048da7ae76d3146000f8a492008eac4ecba0",
+    "https://deno.land/std@0.224.0/log/debug.ts": "ddd63a549fedc3061deba47e41cd2170263831fc266e503a12b610b77439333b",
+    "https://deno.land/std@0.224.0/log/error.ts": "3979ee3aadc962345ad50eff8a5470ad3fe07c70370808ddc178ee08c3d6c89c",
+    "https://deno.land/std@0.224.0/log/file_handler.ts": "68d6d81ec53bdd6ba61eaceec19d12de59a8ad12ace0d7980a592a51f924a242",
+    "https://deno.land/std@0.224.0/log/formatters.ts": "29e0325902c3b1cbb3b9ffc1f9d77ac2d2e5af35d27b9bdfe4fdbbd83588d4a8",
+    "https://deno.land/std@0.224.0/log/get_logger.ts": "36a5febf5338f68aadafaf23bbe38a208e2a3150ec02ca2ec5d3c6bbaf840641",
+    "https://deno.land/std@0.224.0/log/info.ts": "e6c4971e35092d85cd3241fe7eccdb42999083d14db6aadc5e741f6231e275ad",
+    "https://deno.land/std@0.224.0/log/levels.ts": "632ba12baa2600750d004cc5cb4eabe10e410f3f2bdfcb9f7142b6d767f2fee6",
+    "https://deno.land/std@0.224.0/log/logger.ts": "57109848fb587fb3843a7b893f22f1a86c1b78c289172627a6305906738f238a",
+    "https://deno.land/std@0.224.0/log/mod.ts": "650c53c2c5d9eb05210c4ec54184ecb5bd24fb32ce28e65fad039853978f53f3",
+    "https://deno.land/std@0.224.0/log/rotating_file_handler.ts": "a6e7c712e568b618303273ff95483f6ab86dec0a485c73c2e399765f752b5aa8",
+    "https://deno.land/std@0.224.0/log/setup.ts": "42425c550da52c7def7f63a4fcc1ac01a4aec6c73336697a640978d6a324e7a6",
+    "https://deno.land/std@0.224.0/log/warn.ts": "f1a6bc33a481f231a0257e6d66e26c2e695b931d5e917d8de4f2b825778dfd4e",
     "https://deno.land/std@0.224.0/uuid/_common.ts": "05c787c5735776c4e48e30294878332c39cb7738f50b209df4eb9f2b0facce4d",
     "https://deno.land/std@0.224.0/uuid/constants.ts": "eb6c96871e968adf3355507d7ae79adce71525fd6c1ca55c51d32ace0196d64e",
     "https://deno.land/std@0.224.0/uuid/mod.ts": "cefc8e2f77d9e493739c8dc4ec141b12b855414bf757e778bf9b00f783506b76",
@@ -215,6 +271,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@gz/jwt@0.1",
       "jsr:@oak/oak@^17.1.4",
       "jsr:@std/assert@1"
     ]

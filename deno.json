@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "nodeModulesDir": "auto",
+  "sloppyImports": true
+}
