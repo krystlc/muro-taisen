@@ -11,31 +11,41 @@ import { InputController } from '@/input/InputController';
 import { useGameServerContext } from '../contexts/GameServerContext';
 
 import { NextPiecePanel, MainBoard, OpponentMiniBoard } from '@/rendering/components/BattleComponents';
-import { GameAction } from '@/hooks/useGameServer';
 
 export default function BattleScreen() {
-  const router = useRouter();
   const player1 = useGameStore((state) => state.player1);
   const player2 = useGameStore((state) => state.player2);
 
   // Hook into the websocket server connection
-  const { sendGameAction, opponentAction, matchStarted, quickMatch, queueStatus } = useGameServerContext();
+  const { sendGameAction, opponentAction, matchStarted, quickMatch, queueStatus, userId } = useGameServerContext();
+
+  const opponentName = matchStarted
+    ? (matchStarted.players.find(id => id !== userId) || 'Opponent')
+    : player2.name;
 
   const engineRef = useRef<GameEngine | null>(null);
   const opponentEngineRef = useRef<GameEngine | null>(null);
 
+  const [engine, setEngine] = useState<GameEngine | null>(null);
+  const [opponentEngine, setOpponentEngine] = useState<GameEngine | null>(null);
+
   // Initialize engines once match data (seed) arrives from the server
-  const seed = matchStarted?.seed || 123;
-  if (!engineRef.current) {
-    engineRef.current = new GameEngine(`match_seed_${seed}`);
-    opponentEngineRef.current = new GameEngine(`match_seed_${seed}`); // Same seed ensures identical piece sequence!
-  }
+  useEffect(() => {
+    if (matchStarted) {
+      const eng1 = new GameEngine(matchStarted.seed.toString());
+      const eng2 = new GameEngine(matchStarted.seed.toString());
+      engineRef.current = eng1;
+      opponentEngineRef.current = eng2;
+      setEngine(eng1);
+      setOpponentEngine(eng2);
+      setGameState(eng1.getState());
+      setOpponentGameState(eng2.getState());
+      setPhase('FIGHT');
+    }
+  }, [matchStarted]);
 
-  const engine = engineRef.current!;
-  const opponentEngine = opponentEngineRef.current!;
-
-  const [gameState, setGameState] = useState<GameState>(() => engine.getState());
-  const [opponentGameState, setOpponentGameState] = useState<GameState>(() => opponentEngine.getState());
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [opponentGameState, setOpponentGameState] = useState<GameState | null>(null);
   const [phase, setPhase] = useState<'MATCHMAKING' | 'READY' | '3' | '2' | '1' | 'FIGHT'>('MATCHMAKING');
   const [matchResult, setMatchResult] = useState<'WIN' | 'LOSS' | null>(null);
 
@@ -65,7 +75,12 @@ export default function BattleScreen() {
 
   // Handle incoming remote actions from the online opponent
   useEffect(() => {
-    if (!opponentAction) return;
+    if (!opponentAction || !opponentEngine || !engine) return;
+
+    if (opponentAction.payload?.type === 'GAME_OVER') {
+      setMatchResult('WIN');
+      return;
+    }
 
     // Apply opponent's network actions (e.g., DROP, ROTATE) to their engine simulation
     switch (opponentAction.type) {
@@ -81,20 +96,26 @@ export default function BattleScreen() {
         engine.processGarbageQueue(0);
         break;
     }
-  }, [opponentAction]);
+  }, [opponentAction, engine, opponentEngine]);
 
   // Main Game Loop Tick
   useEffect(() => {
-    if (phase !== 'FIGHT') return;
+    if (phase !== 'FIGHT' || !engine || !opponentEngine) return;
     let lastTime = Date.now();
 
     const interval = setInterval(() => {
       const currentState = engine.getState();
       const currentOpponentState = opponentEngine.getState();
 
-      // Check Win/Loss conditions
+      // Check Win/Loss conditions - BROADCAST GAME OVER
       if (currentState.status === 'GAME_OVER' || currentOpponentState.status === 'GAME_OVER') {
         clearInterval(interval);
+
+        // Broadcast Game Over to opponent
+        if (matchStarted && !matchResult) {
+          sendGameAction({ type: 'SEND_GARBAGE', payload: { type: 'GAME_OVER' } });
+        }
+
         setGameState({ ...currentState });
         setOpponentGameState({ ...currentOpponentState });
 
@@ -142,6 +163,10 @@ export default function BattleScreen() {
   // (Pass a wrapper around your engine actions into InputController or call sendGameAction on moves)
 
   // Build Human Composite View Grid
+  if (!gameState || !opponentGameState) {
+    return <View style={styles.container} />; // Or a loading screen
+  }
+
   const displayGrid = gameState.grid.map((row) => [...row]);
   const activePiece = gameState.activePiece;
   if (activePiece) {
@@ -194,7 +219,7 @@ export default function BattleScreen() {
       </View>
 
       <View style={styles.hudBar}>
-        <VersusBar player1Name={player1.name} player2Name={matchStarted?.players[1] || 'Opponent'} />
+        <VersusBar player1Name={player1.name} player2Name={opponentName} />
       </View>
 
       <InputController engineRef={engineRef} enabled={phase === 'FIGHT'}>

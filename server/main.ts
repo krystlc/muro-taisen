@@ -60,7 +60,7 @@ setInterval(() => {
 // ---------------------------------------------------------
 // 4. Server Request Handler
 // ---------------------------------------------------------
-Deno.serve({ port: 8080 }, async (req) => {
+Deno.serve({ port: 8080 }, async (req: Request) => {
   const headers = corsHeaders(req);
 
   if (req.method === "OPTIONS") {

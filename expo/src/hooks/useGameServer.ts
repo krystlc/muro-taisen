@@ -8,6 +8,7 @@ export type GameAction = {
 export function useGameServer() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [onlinePlayerCount, setOnlinePlayerCount] = useState(0);
   const [opponentAction, setOpponentAction] = useState<any>(null);
   const [matchStarted, setMatchStarted] = useState<{ seed: number; players: string[] } | null>(null);
@@ -37,7 +38,8 @@ export function useGameServer() {
   const connect = useCallback(async () => {
     // 1. Authenticate to get JWT token
     const authRes = await fetch('http://localhost:8080/api/auth/guest', { method: 'POST' });
-    const { token } = await authRes.json();
+    const { userId, token } = await authRes.json();
+    setUserId(userId);
 
     // 2. Connect WebSocket WITHOUT token in URL
     const ws = new WebSocket('ws://localhost:8080');
@@ -88,5 +90,5 @@ export function useGameServer() {
     sendSafe({ type: 'GAME_ACTION', action });
   };
 
-  return { onlinePlayerCount, quickMatch, joinRoom, sendGameAction, opponentAction, matchStarted, queueStatus, authenticated };
+  return { userId, onlinePlayerCount, quickMatch, joinRoom, sendGameAction, opponentAction, matchStarted, queueStatus, authenticated };
 }
