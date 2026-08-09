@@ -1,8 +1,13 @@
 import { GameEngine } from '@/core/engine/GameEngine';
 import { useRef, useEffect } from 'react';
 import { PanResponder } from 'react-native';
+import { GameAction } from '@/hooks/useGameServer';
 
-export function useTouchGestures(engineRef: React.RefObject<GameEngine>, enabled: boolean) {
+export function useTouchGestures(
+  engineRef: React.RefObject<GameEngine>, 
+  enabled: boolean, 
+  onAction?: (action: GameAction) => void
+) {
   // Use a ref to keep track of the current enabled state dynamically
   const enabledRef = useRef(enabled);
   useEffect(() => {
@@ -31,12 +36,15 @@ export function useTouchGestures(engineRef: React.RefObject<GameEngine>, enabled
           if (Math.abs(dx) > Math.abs(dy)) {
             if (dx > 0) {
               engineRef.current?.queueInput('MOVE_RIGHT');
+              onAction?.({ type: 'MOVE', payload: { direction: 'RIGHT' } });
             } else {
               engineRef.current?.queueInput('MOVE_LEFT');
+              onAction?.({ type: 'MOVE', payload: { direction: 'LEFT' } });
             }
             gestureState.dx = 0; // Reset for continuous movement
           } else if (dy > DRAG_THRESHOLD) {
             engineRef.current?.queueInput('SOFT_DROP');
+            // SOFT_DROP could be considered a MOVE or separate
             gestureState.dy = 0;
           }
         }
@@ -51,8 +59,10 @@ export function useTouchGestures(engineRef: React.RefObject<GameEngine>, enabled
         // Relaxed thresholds: 300ms duration, 30 distance units for tap detection
         if (duration < 300 && dist < 30) {
           engineRef.current?.queueInput('ROTATE_CW');
+          onAction?.({ type: 'ROTATE' });
         } else if (dy > 80) { 
           engineRef.current?.queueInput('HARD_DROP');
+          onAction?.({ type: 'DROP' });
         }
       },
     })

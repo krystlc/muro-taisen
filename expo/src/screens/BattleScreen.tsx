@@ -84,6 +84,13 @@ export default function BattleScreen() {
 
     // Apply opponent's network actions (e.g., DROP, ROTATE) to their engine simulation
     switch (opponentAction.type) {
+      case 'MOVE':
+        if (opponentAction.payload?.direction === 'LEFT') {
+            opponentEngine.queueInput('MOVE_LEFT');
+        } else if (opponentAction.payload?.direction === 'RIGHT') {
+            opponentEngine.queueInput('MOVE_RIGHT');
+        }
+        break;
       case 'ROTATE':
         opponentEngine.queueInput('ROTATE_CW');
         break;
@@ -225,9 +232,9 @@ export default function BattleScreen() {
       <InputController 
         engineRef={engineRef} 
         enabled={phase === 'FIGHT'} 
-        onAction={(type) => {
+        onAction={(action) => {
             if (matchStarted) {
-                sendGameAction({ type });
+                sendGameAction(action);
             }
         }}
       >

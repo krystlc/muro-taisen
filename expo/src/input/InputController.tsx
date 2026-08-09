@@ -16,7 +16,7 @@ export function InputController({ engineRef, enabled, children, onAction }: Inpu
   useKeyboardInput(engineRef, Platform.OS === 'web' && enabled, onAction);
 
   // Get touch pan responders for mobile
-  const panResponder = useTouchGestures(engineRef, Platform.OS !== 'web' && enabled);
+  const panResponder = useTouchGestures(engineRef, Platform.OS !== 'web' && enabled, onAction);
 
   return (
     <View style={styles.container} {...(Platform.OS !== 'web' ? panResponder.panHandlers : {})}>

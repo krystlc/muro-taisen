@@ -9,11 +9,11 @@ export function useKeyboardInput(engineRef: React.RefObject<GameEngine>, enabled
       switch (e.code) {
         case 'ArrowLeft':
           engineRef.current?.queueInput('MOVE_LEFT');
-          onAction?.('MOVE');
+          onAction?.({ type: 'MOVE', payload: { direction: 'LEFT' } });
           break;
         case 'ArrowRight':
           engineRef.current?.queueInput('MOVE_RIGHT');
-          onAction?.('MOVE');
+          onAction?.({ type: 'MOVE', payload: { direction: 'RIGHT' } });
           break;
         case 'ArrowDown':
           engineRef.current?.queueInput('SOFT_DROP');
