@@ -17,7 +17,7 @@ export default function BattleScreen() {
   const player2 = useGameStore((state) => state.player2);
 
   // Hook into the websocket server connection
-  const { sendGameAction, opponentAction, matchStarted, quickMatch, queueStatus, userId } = useGameServerContext();
+  const { sendGameAction, consumeOpponentActions, matchStarted, quickMatch, queueStatus, userId, clearMatch } = useGameServerContext();
 
   const opponentName = matchStarted
     ? (matchStarted.players.find(id => id !== userId) || 'Opponent')
@@ -47,21 +47,33 @@ export default function BattleScreen() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [opponentGameState, setOpponentGameState] = useState<GameState | null>(null);
   const [phase, setPhase] = useState<'MATCHMAKING' | 'READY' | '3' | '2' | '1' | 'FIGHT'>('MATCHMAKING');
-  const [matchResult, setMatchResult] = useState<'WIN' | 'LOSS' | null>(null);
+  const [matchResult, setMatchResult] = useState<'WIN' | 'LOSS' | 'OPPONENT_LEFT' | null>(null);
 
   const lastScoreRef = useRef(0);
   const opponentLastScoreRef = useRef(0);
 
-  // Auto-trigger quick match on mount if not matched yet
+  // 1. Auto-trigger quick match on mount
   useEffect(() => {
     if (!matchStarted) {
       quickMatch();
     }
-  }, [matchStarted]);
+  }, []);
 
-  // Once server sends START_MATCH, kick off the countdown sequence
+  // 2. Initialize engines and trigger countdown when a match is found
   useEffect(() => {
-    if (matchStarted && phase === 'MATCHMAKING') {
+    if (matchStarted) {
+      const eng1 = new GameEngine(matchStarted.seed.toString());
+      const eng2 = new GameEngine(matchStarted.seed.toString());
+      engineRef.current = eng1;
+      opponentEngineRef.current = eng2;
+      setEngine(eng1);
+      setOpponentEngine(eng2);
+      setGameState(eng1.getState());
+      setOpponentGameState(eng2.getState());
+
+      // Reset match result in case this is a subsequent match
+      setMatchResult(null);
+
       const sequence = async () => {
         setPhase('READY');
         await new Promise((r) => setTimeout(r, 600)); setPhase('3');
@@ -71,66 +83,61 @@ export default function BattleScreen() {
       };
       sequence();
     }
-  }, [matchStarted, phase]);
+  }, [matchStarted]);
 
-  // Handle incoming remote actions from the online opponent
-  useEffect(() => {
-    if (!opponentAction || !opponentEngine || !engine) return;
-
-    if (opponentAction.payload?.type === 'GAME_OVER') {
-      setMatchResult('WIN');
-      return;
-    }
-
-    // Apply opponent's network actions (e.g., DROP, ROTATE) to their engine simulation
-    switch (opponentAction.type) {
-      case 'MOVE':
-        if (opponentAction.payload?.direction === 'LEFT') {
-            opponentEngine.queueInput('MOVE_LEFT');
-        } else if (opponentAction.payload?.direction === 'RIGHT') {
-            opponentEngine.queueInput('MOVE_RIGHT');
-        }
-        break;
-      case 'ROTATE':
-        opponentEngine.queueInput('ROTATE_CW');
-        break;
-      case 'DROP':
-        opponentEngine.queueInput('HARD_DROP');
-        break;
-      case 'SEND_GARBAGE':
-        // If opponent attacked us, queue garbage locally
-        engine.queueGarbage(opponentAction.payload.lines);
-        engine.processGarbageQueue(0);
-        break;
-    }
-  }, [opponentAction, engine, opponentEngine]);
-
-  // Main Game Loop Tick
+  // 3. Main Game Loop Tick (Now handles draining the opponent action queue)
   useEffect(() => {
     if (phase !== 'FIGHT' || !engine || !opponentEngine) return;
     let lastTime = Date.now();
 
     const interval = setInterval(() => {
+      // --- DRAIN NETWORK QUEUE FIRST ---
+      // This guarantees we process every rotate and drop before ticking the engine
+      const pendingActions = consumeOpponentActions();
+      for (const action of pendingActions) {
+        // Catch both GAME_OVER and PLAYER_LEFT
+        if (action.type === 'GAME_OVER' || action.type === 'PLAYER_LEFT') {
+          if (action.type === 'PLAYER_LEFT') {
+            setMatchResult('OPPONENT_LEFT');
+          } else {
+            setMatchResult('WIN');
+          }
+          return;
+        }
+
+        switch (action.type) {
+          case 'MOVE':
+            if (action.payload?.direction === 'LEFT') opponentEngine.queueInput('MOVE_LEFT');
+            if (action.payload?.direction === 'RIGHT') opponentEngine.queueInput('MOVE_RIGHT');
+            break;
+          case 'ROTATE':
+            opponentEngine.queueInput('ROTATE_CW');
+            break;
+          case 'DROP':
+            opponentEngine.queueInput('HARD_DROP');
+            break;
+          case 'SEND_GARBAGE':
+            engine.queueGarbage(action.payload.lines);
+            engine.processGarbageQueue(0);
+            break;
+        }
+      }
+
+      // --- ENGINE TICKS ---
       const currentState = engine.getState();
       const currentOpponentState = opponentEngine.getState();
 
-      // Check Win/Loss conditions - BROADCAST GAME OVER
       if (currentState.status === 'GAME_OVER' || currentOpponentState.status === 'GAME_OVER') {
         clearInterval(interval);
 
-        // Broadcast Game Over to opponent
-        if (matchStarted && !matchResult) {
-          sendGameAction({ type: 'SEND_GARBAGE', payload: { type: 'GAME_OVER' } });
+        // Let the server know we died so it can relay to the opponent
+        if (currentState.status === 'GAME_OVER' && !matchResult) {
+          sendGameAction({ type: 'GAME_OVER' });
         }
 
         setGameState({ ...currentState });
         setOpponentGameState({ ...currentOpponentState });
-
-        if (currentState.status === 'GAME_OVER') {
-          setMatchResult('LOSS');
-        } else {
-          setMatchResult('WIN');
-        }
+        setMatchResult(currentState.status === 'GAME_OVER' ? 'LOSS' : 'WIN');
         return;
       }
 
@@ -138,33 +145,44 @@ export default function BattleScreen() {
       const deltaMs = now - lastTime;
       lastTime = now;
 
-      // 1. HUMAN LOCAL ENGINE TICK & INPUT BROADCAST
       engine.tick(deltaMs);
       const newState = engine.getState();
       setGameState({ ...newState });
 
-      // Check if player scored points -> Calculate and Send Garbage to Server
       if (newState.score > lastScoreRef.current) {
         const scoreDiff = newState.score - lastScoreRef.current;
         const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
-
-        // Broadcast attack to the server so it routes to the opponent
-        sendGameAction({
-          type: 'SEND_GARBAGE',
-          payload: { lines: garbageLines }
-        });
-
+        sendGameAction({ type: 'SEND_GARBAGE', payload: { lines: garbageLines } });
         lastScoreRef.current = newState.score;
       }
 
-      // 2. REMOTE OPPONENT ENGINE TICK (Simulated smoothly via shared seed & action sync)
       opponentEngine.tick(deltaMs);
       setOpponentGameState({ ...opponentEngine.getState() });
 
     }, 50);
 
     return () => clearInterval(interval);
-  }, [phase]);
+  }, [phase, engine, opponentEngine]);
+
+  const handleFindNewMatch = () => {
+    // 1. Tell context to clear the stale match data
+    clearMatch();
+
+    // 2. Reset UI state immediately
+    setMatchResult(null);
+    setPhase('MATCHMAKING');
+    engineRef.current = null;
+    opponentEngineRef.current = null;
+    setEngine(null);
+    setOpponentEngine(null);
+
+    // 3. Ask server for a new opponent
+    quickMatch();
+  };
+
+  if (!gameState || !opponentGameState) {
+    return <View style={styles.container} />;
+  }
 
   // Hook into local input actions to broadcast them to the server
   // (Pass a wrapper around your engine actions into InputController or call sendGameAction on moves)
@@ -207,14 +225,6 @@ export default function BattleScreen() {
     }
   }
 
-  const handleFindNewMatch = () => {
-    setMatchResult(null);
-    setPhase('MATCHMAKING');
-    engineRef.current = null;
-    opponentEngineRef.current = null;
-    quickMatch();
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -229,13 +239,13 @@ export default function BattleScreen() {
         <VersusBar player1Name={player1.name} player2Name={opponentName} />
       </View>
 
-      <InputController 
-        engineRef={engineRef} 
-        enabled={phase === 'FIGHT'} 
+      <InputController
+        engineRef={engineRef}
+        enabled={phase === 'FIGHT'}
         onAction={(action) => {
-            if (matchStarted) {
-                sendGameAction(action);
-            }
+          if (matchStarted) {
+            sendGameAction(action);
+          }
         }}
       >
         <View style={styles.puzzleArea}>
@@ -254,7 +264,7 @@ export default function BattleScreen() {
           {(gameState.status === 'GAME_OVER' || opponentGameState.status === 'GAME_OVER' || matchResult) && (
             <View style={styles.gameOverOverlay}>
               <Text style={[styles.gameOverText, matchResult === 'WIN' ? styles.winText : styles.lossText]}>
-                {matchResult === 'WIN' ? 'VICTORY!' : 'K.O. / DEFEAT'}
+                {matchResult === 'WIN' ? 'VICTORY!' : matchResult === 'OPPONENT_LEFT' ? 'OPPONENT FLED!' : 'K.O. / DEFEAT'}
               </Text>
               <View style={styles.buttonRow}>
                 <GameButton label="Find New Match" onPress={handleFindNewMatch} variant="primary" />

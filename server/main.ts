@@ -190,6 +190,12 @@ function handleClientMessage(session: ClientSession, msg: any) {
   switch (msg.type) {
     // PRONG A: Quick Play (Lowest Friction)
     case "QUICK_MATCH": {
+      // 1. MUST leave the current room before entering matchmaking!
+      leaveRoom(session);
+
+      // Prevent adding the same player to the queue twice
+      if (matchmakingQueue.has(session)) return;
+
       if (matchmakingQueue.size > 0) {
         // Pop the first waiting player out of the queue
         const opponent = matchmakingQueue.values().next().value!;
