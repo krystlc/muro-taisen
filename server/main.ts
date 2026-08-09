@@ -12,7 +12,7 @@ const JWT_SECRET = Deno.env.get("JWT_SECRET") || "super-secret-fallback-key-32-c
 // ---------------------------------------------------------
 const allowedOrigins = new Set([
   "http://localhost:8081",
-  "https://app.example.com",
+  "http://192.168.0.184:8081",
 ]);
 
 function corsHeaders(req: Request): Headers {
@@ -60,7 +60,7 @@ setInterval(() => {
 // ---------------------------------------------------------
 // 4. Server Request Handler
 // ---------------------------------------------------------
-Deno.serve({ port: 8080 }, async (req: Request) => {
+Deno.serve({ port: 8000, hostname: "0.0.0.0" }, async (req: Request) => {
   const headers = corsHeaders(req);
 
   if (req.method === "OPTIONS") {
@@ -281,4 +281,4 @@ function broadcastToRoom(roomId: string, payload: any, excludeWs?: WebSocket) {
   }
 }
 
-log.info("Server running on http://localhost:8080");
+log.info("Server running on http://192.168.0.184:8080");

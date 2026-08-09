@@ -222,7 +222,15 @@ export default function BattleScreen() {
         <VersusBar player1Name={player1.name} player2Name={opponentName} />
       </View>
 
-      <InputController engineRef={engineRef} enabled={phase === 'FIGHT'}>
+      <InputController 
+        engineRef={engineRef} 
+        enabled={phase === 'FIGHT'} 
+        onAction={(type) => {
+            if (matchStarted) {
+                sendGameAction({ type });
+            }
+        }}
+      >
         <View style={styles.puzzleArea}>
           {phase !== 'FIGHT' ? (
             <View style={styles.centered}>

@@ -1,32 +1,36 @@
 import { GameEngine } from '@/core/engine/GameEngine';
 import { useEffect } from 'react';
 
-export function useKeyboardInput(engineRef: React.RefObject<GameEngine>, enabled: boolean) {
+export function useKeyboardInput(engineRef: React.RefObject<GameEngine>, enabled: boolean, onAction?: (type: 'DROP' | 'ROTATE' | 'MOVE') => void) {
   useEffect(() => {
     if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.code) {
         case 'ArrowLeft':
-          engineRef.current.queueInput('MOVE_LEFT');
+          engineRef.current?.queueInput('MOVE_LEFT');
+          onAction?.('MOVE');
           break;
         case 'ArrowRight':
-          engineRef.current.queueInput('MOVE_RIGHT');
+          engineRef.current?.queueInput('MOVE_RIGHT');
+          onAction?.('MOVE');
           break;
         case 'ArrowDown':
-          engineRef.current.queueInput('SOFT_DROP');
+          engineRef.current?.queueInput('SOFT_DROP');
           break;
         case 'ArrowUp':
-          engineRef.current.queueInput('ROTATE_CW');
+          engineRef.current?.queueInput('ROTATE_CW');
+          onAction?.('ROTATE');
           break;
         case 'Space':
-          e.preventDefault(); // Prevent page scroll
-          engineRef.current.queueInput('HARD_DROP');
+          e.preventDefault();
+          engineRef.current?.queueInput('HARD_DROP');
+          onAction?.('DROP');
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [engineRef, enabled]);
+  }, [engineRef, enabled, onAction]);
 }

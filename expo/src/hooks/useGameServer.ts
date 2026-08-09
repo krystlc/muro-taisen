@@ -37,13 +37,13 @@ export function useGameServer() {
 
   const connect = useCallback(async () => {
     // 1. Authenticate to get JWT token
-    const authRes = await fetch('http://localhost:8080/api/auth/guest', { method: 'POST' });
+    const authRes = await fetch('http://192.168.0.184:8000/api/auth/guest', { method: 'POST' });
     const { userId, token } = await authRes.json();
     setUserId(userId);
 
     // 2. Connect WebSocket WITHOUT token in URL
-    const ws = new WebSocket('ws://localhost:8080');
-    
+    const ws = new WebSocket('ws://192.168.0.184:8000');
+
     ws.onopen = () => {
       // 3. Send AUTH as first message
       ws.send(JSON.stringify({ type: 'AUTH', token }));

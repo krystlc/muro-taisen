@@ -8,11 +8,12 @@ interface InputControllerProps {
   engineRef: React.RefObject<GameEngine>;
   enabled: boolean;
   children: React.ReactNode;
+  onAction?: (type: 'DROP' | 'ROTATE' | 'MOVE') => void;
 }
 
-export function InputController({ engineRef, enabled, children }: InputControllerProps) {
+export function InputController({ engineRef, enabled, children, onAction }: InputControllerProps) {
   // Hook up web listeners if running on web
-  useKeyboardInput(engineRef, Platform.OS === 'web' && enabled);
+  useKeyboardInput(engineRef, Platform.OS === 'web' && enabled, onAction);
 
   // Get touch pan responders for mobile
   const panResponder = useTouchGestures(engineRef, Platform.OS !== 'web' && enabled);
