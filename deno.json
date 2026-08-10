@@ -1,4 +1,9 @@
 {
+  "tasks": {
+    "server": "deno run --allow-net --allow-env server/main.ts",
+    "client:build": "cd client && pnpm build:web",
+    "serve": "deno run --allow-net --allow-read --allow-env server/main.ts"
+  },
   "compilerOptions": {
     "allowJs": true,
     "checkJs": false,

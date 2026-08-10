@@ -7,6 +7,9 @@ export type GameAction = {
   payload?: any;
 };
 
+const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8000";
+const serverHost = new URL(HOSTNAME).host;
+
 export function useGameServer() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
@@ -51,13 +54,13 @@ export function useGameServer() {
   }, [authenticated, socket]);
 
   const connect = useCallback(async () => {
-    const authRes = await fetch("http://192.168.0.184:8000/api/auth/guest", {
+    const authRes = await fetch(`http://${serverHost}/api/auth/guest`, {
       method: "POST",
     });
     const { userId, token } = await authRes.json();
     setUserId(userId);
 
-    const ws = new WebSocket("ws://192.168.0.184:8000");
+    const ws = new WebSocket(`ws://${serverHost}`);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "AUTH", token }));
