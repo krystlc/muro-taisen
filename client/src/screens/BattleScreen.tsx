@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { GameButton, VersusBar } from "../components/game-ui";
+import { FighterRenderer } from "../components/game-ui/FighterRenderer";
 import { BOARD_COLS, BOARD_ROWS } from "../core/engine/Board";
 import { GameEngine, GameState } from "../core/engine/GameEngine";
 import { useGameStore } from "../store/useGameStore";
@@ -19,13 +20,31 @@ export default function BattleScreen() {
   const player1 = useGameStore((state) => state.player1);
   const player2 = useGameStore((state) => state.player2);
 
+  const [p1State, setP1State] = useState<"neutral" | "attack" | "damage">(
+    "neutral",
+  );
+  const [p2State, setP2State] = useState<"neutral" | "attack" | "damage">(
+    "neutral",
+  );
+
+  const triggerState = (
+    setter: React.Dispatch<
+      React.SetStateAction<"neutral" | "attack" | "damage">
+    >,
+    state: "attack" | "damage",
+  ) => {
+    setter(state);
+    setTimeout(() => setter("neutral"), 500);
+  };
+
+  // ... (rest of the component)
+
   // Hook into the websocket server connection
   const {
     sendGameAction,
     consumeOpponentActions,
     matchStarted,
     quickMatch,
-    queueStatus,
     userId,
     clearMatch,
   } = useGameServerContext();
@@ -141,6 +160,7 @@ export default function BattleScreen() {
           case "SEND_GARBAGE":
             engine.queueGarbage(action.payload.lines);
             engine.processGarbageQueue(0);
+            triggerState(setP1State, "damage");
             break;
         }
       }
@@ -182,6 +202,8 @@ export default function BattleScreen() {
           payload: { lines: garbageLines },
         });
         lastScoreRef.current = newState.score;
+        triggerState(setP1State, "attack");
+        triggerState(setP2State, "damage");
       }
 
       opponentEngine.tick(deltaMs);
@@ -284,11 +306,8 @@ export default function BattleScreen() {
       <StatusBar style="light" />
 
       <View style={styles.fighterArena}>
-        <Text style={styles.placeholderText}>
-          {phase === "MATCHMAKING"
-            ? queueStatus || "Finding Opponent..."
-            : "[ Online 3D Arena ]"}
-        </Text>
+        <FighterRenderer name={player1.name} state={p1State} />
+        <FighterRenderer name={opponentName} state={p2State} flipped={true} />
       </View>
 
       <View style={styles.hudBar}>
@@ -355,10 +374,11 @@ const styles = StyleSheet.create({
   fighterArena: {
     flex: 0.4,
     backgroundColor: "#1a2235",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
     borderBottomWidth: 2,
     borderBottomColor: "#000",
+    flexDirection: "row",
   },
   placeholderText: { color: "#475569", fontSize: 20, fontWeight: "bold" },
   hudBar: { flex: 0.1, zIndex: 10, justifyContent: "center" },
