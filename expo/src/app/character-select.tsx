@@ -1,1 +1,1 @@
-export { default } from '../screens/CharacterSelectScreen';
+export { default } from "../screens/CharacterSelectScreen";

@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import type { ReactNode } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { gameColors } from './game-theme';
+import { gameColors } from "./game-theme";
 
-export { gameColors } from './game-theme';
-export { VersusBar } from './game-ui/VersusBar';
+export { gameColors } from "./game-theme";
+export { VersusBar } from "./game-ui/VersusBar";
 
 type ScreenShellProps = {
   children: ReactNode;
@@ -18,12 +18,18 @@ type ScreenShellProps = {
 type GameButtonProps = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'quiet';
+  variant?: "primary" | "secondary" | "quiet";
 };
 
-export function ScreenShell({ children, eyebrow, onBack, subtitle, title }: ScreenShellProps) {
+export function ScreenShell({
+  children,
+  eyebrow,
+  onBack,
+  subtitle,
+  title,
+}: ScreenShellProps) {
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -31,7 +37,11 @@ export function ScreenShell({ children, eyebrow, onBack, subtitle, title }: Scre
       >
         <View style={styles.topBar}>
           {onBack ? (
-            <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onBack}
+              style={styles.backButton}
+            >
               <Text style={styles.backButtonText}>‹ BACK</Text>
             </Pressable>
           ) : (
@@ -48,7 +58,11 @@ export function ScreenShell({ children, eyebrow, onBack, subtitle, title }: Scre
   );
 }
 
-export function GameButton({ label, onPress, variant = 'primary' }: GameButtonProps) {
+export function GameButton({
+  label,
+  onPress,
+  variant = "primary",
+}: GameButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -56,22 +70,22 @@ export function GameButton({ label, onPress, variant = 'primary' }: GameButtonPr
       onStartShouldSetResponder={() => true}
       style={({ pressed }) => [
         styles.button,
-        variant === 'primary' && styles.primaryButton,
-        variant === 'secondary' && styles.secondaryButton,
-        variant === 'quiet' && styles.quietButton,
+        variant === "primary" && styles.primaryButton,
+        variant === "secondary" && styles.secondaryButton,
+        variant === "quiet" && styles.quietButton,
         pressed && styles.pressedButton,
       ]}
     >
       <Text
         style={[
           styles.buttonLabel,
-          variant === 'primary' && styles.primaryButtonLabel,
-          variant !== 'primary' && styles.secondaryButtonLabel,
+          variant === "primary" && styles.primaryButtonLabel,
+          variant !== "primary" && styles.secondaryButtonLabel,
         ]}
       >
         {label}
       </Text>
-      {variant === 'primary' ? <Text style={styles.buttonArrow}>→</Text> : null}
+      {variant === "primary" ? <Text style={styles.buttonArrow}>→</Text> : null}
     </Pressable>
   );
 }
@@ -88,15 +102,15 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   topBar: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     minHeight: 32,
   },
   topBarLabel: {
-    color: '#526074',
+    color: "#526074",
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 2,
   },
   backButton: {
@@ -105,20 +119,20 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: gameColors.cyan,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 1,
   },
   eyebrow: {
     color: gameColors.cyan,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 2,
     marginTop: 52,
   },
   title: {
     color: gameColors.text,
     fontSize: 42,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: 1,
     marginTop: 12,
   },
@@ -134,10 +148,10 @@ const styles = StyleSheet.create({
     marginTop: 34,
   },
   button: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     minHeight: 58,
     paddingHorizontal: 20,
   },
@@ -146,7 +160,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     backgroundColor: gameColors.panel,
-    borderColor: '#273449',
+    borderColor: "#273449",
     borderWidth: 1,
   },
   quietButton: {
@@ -159,18 +173,18 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: 2,
   },
   primaryButtonLabel: {
-    color: '#07131c',
+    color: "#07131c",
   },
   secondaryButtonLabel: {
     color: gameColors.text,
   },
   buttonArrow: {
-    color: '#07131c',
+    color: "#07131c",
     fontSize: 24,
-    fontWeight: '400',
+    fontWeight: "400",
   },
 });

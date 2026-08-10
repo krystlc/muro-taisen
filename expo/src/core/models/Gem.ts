@@ -1,17 +1,17 @@
 // Gem types, colors, countdowns
 export enum GemColor {
-  RED = 'RED',
-  BLUE = 'BLUE',
-  YELLOW = 'YELLOW',
-  GREEN = 'GREEN',
-  RAINBOW = 'RAINBOW',
+  RED = "RED",
+  BLUE = "BLUE",
+  YELLOW = "YELLOW",
+  GREEN = "GREEN",
+  RAINBOW = "RAINBOW",
 }
 
 export enum GemType {
-  NORMAL = 'NORMAL',
-  CRASH = 'CRASH',
-  COUNTER = 'COUNTER',
-  RAINBOW = 'RAINBOW',
+  NORMAL = "NORMAL",
+  CRASH = "CRASH",
+  COUNTER = "COUNTER",
+  RAINBOW = "RAINBOW",
 }
 
 export interface Gem {

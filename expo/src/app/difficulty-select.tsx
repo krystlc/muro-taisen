@@ -1,1 +1,1 @@
-export { default } from '../screens/DifficultySelectScreen';
+export { default } from "../screens/DifficultySelectScreen";

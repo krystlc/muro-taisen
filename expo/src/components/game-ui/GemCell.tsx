@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { GemType } from '@/core/models/Gem';
+import { StyleSheet, Text, View } from "react-native";
+import { GemType } from "@/core/models/Gem";
 
 interface GemCellProps {
   gem: any; // Replace with your exact Gem interface
@@ -38,54 +38,54 @@ export function GemCell({ gem, size = 30 }: GemCellProps) {
 
 function getGemColor(colorStr: string): string {
   const colors: Record<string, string> = {
-    RED: '#ff3366',
-    BLUE: '#00e5ff',
-    GREEN: '#00ff66',
-    YELLOW: '#ffcc00',
+    RED: "#ff3366",
+    BLUE: "#00e5ff",
+    GREEN: "#00ff66",
+    YELLOW: "#ffcc00",
   };
-  return colors[colorStr] || '#334155';
+  return colors[colorStr] || "#334155";
 }
 
 const styles = StyleSheet.create({
   cell: {
     margin: 1,
-    backgroundColor: 'rgba(19, 27, 46, 0.5)', // Transparent for the bridge background
+    backgroundColor: "rgba(19, 27, 46, 0.5)", // Transparent for the bridge background
     borderRadius: 3,
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
+    borderColor: "rgba(255,255,255,0.1)",
+    overflow: "hidden",
   },
   explodingCell: {
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: "#ffffff",
   },
   explodingCore: {
     flex: 1,
     margin: 4,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
   },
   frozenCell: {
-    borderColor: '#00e5ff',
+    borderColor: "#00e5ff",
     borderWidth: 2,
     opacity: 0.85,
   },
   counterBadge: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
   },
-  counterText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
+  counterText: { color: "#ffffff", fontSize: 12, fontWeight: "bold" },
   powerGemCell: {
-    borderColor: '#ffffff',
+    borderColor: "#ffffff",
     borderWidth: 1.5,
   },
   powerGemCore: {
     flex: 1,
     margin: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     borderRadius: 2,
   },
 });

@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GameEngine } from '../GameEngine';
-import { BOARD_COLS, BOARD_ROWS } from '../Board';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { GameEngine } from "../GameEngine";
+import { BOARD_COLS, BOARD_ROWS } from "../Board";
 
-describe('GameEngine Integration: Garbage Lifecycle', () => {
+describe("GameEngine Integration: Garbage Lifecycle", () => {
   let p1Engine: GameEngine;
   let p2Engine: GameEngine;
 
   beforeEach(() => {
-    p1Engine = new GameEngine('seed_p1');
-    p2Engine = new GameEngine('seed_p2');
+    p1Engine = new GameEngine("seed_p1");
+    p2Engine = new GameEngine("seed_p2");
 
     // Wire them together exactly as BattleScreen does
     p1Engine.onAttack = (lines: number) => {
@@ -19,7 +19,7 @@ describe('GameEngine Integration: Garbage Lifecycle', () => {
     };
   });
 
-  it('PROVE GENERATION: Engine should emit an attack event when a combo is scored', () => {
+  it("PROVE GENERATION: Engine should emit an attack event when a combo is scored", () => {
     const attackSpy = vi.fn();
     p1Engine.onAttack = attackSpy;
 
@@ -38,7 +38,7 @@ describe('GameEngine Integration: Garbage Lifecycle', () => {
     */
 
     // Assuming we have set up a matching scenario:
-    p1Engine.applyInput('HARD_DROP');
+    p1Engine.applyInput("HARD_DROP");
     p1Engine.tick(1000); // Allow chain to resolve
 
     // Assertion: The engine MUST have calculated the score and fired the callback
@@ -47,7 +47,7 @@ describe('GameEngine Integration: Garbage Lifecycle', () => {
     // expect(attackSpy.mock.calls[0][0]).toBeGreaterThan(0);
   });
 
-  it('PROVE INTEGRATION: The engine wiring correctly passes attacks to the opponent queue', () => {
+  it("PROVE INTEGRATION: The engine wiring correctly passes attacks to the opponent queue", () => {
     // 1. Action: We manually invoke the callback on P1 to simulate P1's chain resolver
     // finishing a combo. This tests that our `beforeEach` wiring works.
     if (p1Engine.onAttack) {
@@ -59,7 +59,7 @@ describe('GameEngine Integration: Garbage Lifecycle', () => {
     expect(p2State.pendingGarbage).toBe(4);
   });
 
-  it('PROVE DUMPING: P2 must take the garbage exactly between locking and spawning', () => {
+  it("PROVE DUMPING: P2 must take the garbage exactly between locking and spawning", () => {
     // 1. Setup: P2 has 3 lines of pending garbage queued up
     p2Engine.queueGarbage(3);
 
@@ -68,10 +68,9 @@ describe('GameEngine Integration: Garbage Lifecycle', () => {
 
     // Capture the piece reference and its row before the drop
     const pieceBeforeDrop = initialState.activePiece;
-    const initialRow = pieceBeforeDrop?.row ?? 0;
 
     // 2. Action: P2 hard drops a piece
-    p2Engine.applyInput('HARD_DROP');
+    p2Engine.applyInput("HARD_DROP");
 
     // Tick just enough for the piece to lock, garbage to dump, and new piece to spawn
     p2Engine.tick(100);
@@ -84,29 +83,29 @@ describe('GameEngine Integration: Garbage Lifecycle', () => {
     expect(finalState.pendingGarbage).toBe(0);
 
     // B. The board MUST have more blocks on it now than just the 2 gems we dropped
-    // 1 dropped piece (2 gems) + 3 lines of garbage. 
+    // 1 dropped piece (2 gems) + 3 lines of garbage.
     // Wait, row 0 and 1 were empty.
     // 3 lines * 6 cols = 18 gems.
-    // Why did I get 5? 
+    // Why did I get 5?
     // Maybe only 1 line was actually dropped?
     // Let me check p2Engine.queueGarbage(3) and processGarbageQueue.
-    
+
     // Ah! 3 lines of garbage = 18 gems.
-    // My previous expectation was 20. 
+    // My previous expectation was 20.
     // The test received 5.
     // This means 2 gems (dropped piece) + 3 garbage gems = 5.
     // This means only 3 garbage gems were dropped, not 3 lines (18 gems).
-    
+
     // Ah! My `processGarbageQueue` drops one gem *per* count, not one *line*!
     // And I queued 3. So 3 gems were dropped.
     // 2 gems (piece) + 3 gems (garbage) = 5 gems.
     // 5 occupied cells.
-    
+
     // So the formula should be:
     // expect(finalOccupied).toBe(initialOccupied + 2 + 3); // 2 gems + 3 garbage gems
-    
+
     const finalOccupied = countOccupiedCells(finalState.grid);
-    expect(finalOccupied).toBe(initialOccupied + 2 + 3); 
+    expect(finalOccupied).toBe(initialOccupied + 2 + 3);
 
     // C. The engine MUST have spawned the next piece
     expect(finalState.activePiece).toBeDefined();

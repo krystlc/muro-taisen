@@ -1,29 +1,35 @@
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ImageBackground, Pressable } from 'react-native';
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import {
+  StyleSheet,
+  Text,
+  View,
+  ImageBackground,
+  Pressable,
+} from "react-native";
 
-import { GameButton, gameColors } from '../components/game-ui';
-import { useGameServerContext } from '../contexts/GameServerContext';
-import { useEffect } from 'react';
+import { GameButton } from "../components/game-ui";
+import { useGameServerContext } from "../contexts/GameServerContext";
+import { useEffect } from "react";
 
 export default function StartScreen() {
   const router = useRouter();
-  const { onlinePlayerCount, quickMatch, queueStatus, matchStarted } = useGameServerContext();
+  const { onlinePlayerCount, quickMatch, queueStatus, matchStarted } =
+    useGameServerContext();
 
   useEffect(() => {
     if (matchStarted) {
-      router.push('/battle');
+      router.push("/battle");
     }
   }, [matchStarted, router]);
 
   return (
     <ImageBackground
-      source={require('../../assets/images/bg.png')}
+      source={require("../../assets/game/bg.png")}
       style={styles.background}
     >
       <StatusBar style="light" />
       <View style={styles.container}>
-
         {/* Header: Player Count */}
         <View style={styles.topRight}>
           <Text style={styles.playerCount}>👥 {onlinePlayerCount}</Text>
@@ -33,18 +39,24 @@ export default function StartScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>Muro Taisen</Text>
           <Text style={styles.subtitle}>PUZZLE FIGHTER IS LIVE</Text>
-          <Text style={styles.subtext}>DISCOVER A WORLD OF LEGENDARY FIGHTERS</Text>
+          <Text style={styles.subtext}>
+            DISCOVER A WORLD OF LEGENDARY FIGHTERS
+          </Text>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actions}>
           <GameButton
-            label={queueStatus === 'WAITING' ? "WAITING FOR OPPONENT..." : "QUICK MATCH"}
+            label={
+              queueStatus === "WAITING"
+                ? "WAITING FOR OPPONENT..."
+                : "QUICK MATCH"
+            }
             onPress={quickMatch}
           />
           <GameButton
             label="OFFLINE CAMPAIGN"
-            onPress={() => router.push('/difficulty-select')}
+            onPress={() => router.push("/difficulty-select")}
             variant="secondary"
           />
         </View>
@@ -53,14 +65,12 @@ export default function StartScreen() {
         <View style={styles.footer}>
           <View style={styles.footerIcons}>
             <Text style={styles.icon}>⚙️</Text>
-            <Pressable onPress={() => router.push('/online-players')}>
+            <Pressable onPress={() => router.push("/online-players")}>
               <Text style={styles.icon}>👥</Text>
             </Pressable>
             <Text style={styles.icon}>🛒</Text>
           </View>
-          <Text style={styles.legal}>
-            BADHOMBRE 2026
-          </Text>
+          <Text style={styles.legal}>BADHOMBRE 2026</Text>
         </View>
       </View>
     </ImageBackground>
@@ -70,46 +80,46 @@ export default function StartScreen() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    resizeMode: 'cover',
-    justifyContent: 'space-between',
-    overflow: 'hidden',
+    resizeMode: "cover",
+    justifyContent: "space-between",
+    overflow: "hidden",
   },
   container: {
-    backgroundColor: '#000000cc',
+    backgroundColor: "#000000cc",
     flex: 1,
     padding: 24,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   topRight: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#111827',
+    alignSelf: "flex-end",
+    backgroundColor: "#111827",
     padding: 8,
     borderRadius: 8,
   },
   playerCount: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
   },
   content: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 50,
   },
   title: {
-    color: '#ff0000',
+    color: "#ff0000",
     fontSize: 48,
-    fontWeight: '900',
-    textShadowColor: '#fff',
+    fontWeight: "900",
+    textShadowColor: "#fff",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   subtitle: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 20,
   },
   subtext: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
     marginTop: 10,
   },
@@ -118,11 +128,11 @@ const styles = StyleSheet.create({
     marginBottom: 100,
   },
   footer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 10,
   },
   footerIcons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 40,
     marginBottom: 20,
   },
@@ -130,8 +140,8 @@ const styles = StyleSheet.create({
     fontSize: 32,
   },
   legal: {
-    color: '#8491a8',
+    color: "#8491a8",
     fontSize: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

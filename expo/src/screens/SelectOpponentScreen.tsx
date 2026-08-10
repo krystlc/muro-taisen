@@ -1,17 +1,52 @@
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { GameButton, ScreenShell, gameColors } from '../components/game-ui';
-import { useGameStore, type DifficultyLabel } from '../store/useGameStore';
+import { GameButton, ScreenShell, gameColors } from "../components/game-ui";
+import { useGameStore, type DifficultyLabel } from "../store/useGameStore";
 
-const opponents: { accent: string; description: string; difficulty: DifficultyLabel; name: string }[] = [
-  { accent: '#526074', description: 'The baseline training drone. Slow pacing.', difficulty: 'ROOKIE', name: 'CPU // 01' },
-  { accent: '#56d8ff', description: 'Balanced simulation of pilot Mizu. Steady pacing.', difficulty: 'TAISEN', name: 'MIZU CPU' },
-  { accent: '#ff6ea8', description: 'Aggressive simulation of pilot Kiba. High risk cascades.', difficulty: 'TAISEN', name: 'KIBA CPU' },
-  { accent: '#ffd166', description: 'Calculating simulation of pilot Rai. Calm control.', difficulty: 'TAISEN', name: 'RAI CPU' },
-  { accent: '#c084fc', description: 'Neural shadow unit. Swift decisions, high pressure.', difficulty: 'MASTER', name: 'KAGE CPU' },
-  { accent: '#ef4444', description: 'The ultimate tactical AI. Absolute perfection.', difficulty: 'MASTER', name: 'SHIN CPU' },
+const opponents: {
+  accent: string;
+  description: string;
+  difficulty: DifficultyLabel;
+  name: string;
+}[] = [
+  {
+    accent: "#526074",
+    description: "The baseline training drone. Slow pacing.",
+    difficulty: "ROOKIE",
+    name: "CPU // 01",
+  },
+  {
+    accent: "#56d8ff",
+    description: "Balanced simulation of pilot Mizu. Steady pacing.",
+    difficulty: "TAISEN",
+    name: "MIZU CPU",
+  },
+  {
+    accent: "#ff6ea8",
+    description: "Aggressive simulation of pilot Kiba. High risk cascades.",
+    difficulty: "TAISEN",
+    name: "KIBA CPU",
+  },
+  {
+    accent: "#ffd166",
+    description: "Calculating simulation of pilot Rai. Calm control.",
+    difficulty: "TAISEN",
+    name: "RAI CPU",
+  },
+  {
+    accent: "#c084fc",
+    description: "Neural shadow unit. Swift decisions, high pressure.",
+    difficulty: "MASTER",
+    name: "KAGE CPU",
+  },
+  {
+    accent: "#ef4444",
+    description: "The ultimate tactical AI. Absolute perfection.",
+    difficulty: "MASTER",
+    name: "SHIN CPU",
+  },
 ];
 
 export default function SelectOpponentScreen() {
@@ -20,7 +55,7 @@ export default function SelectOpponentScreen() {
   const setOpponent = useGameStore((state) => state.setPlayer2Character);
   const setDifficulty = useGameStore((state) => state.setDifficulty);
 
-  const handleSelectOpponent = (opponent: typeof opponents[0]) => {
+  const handleSelectOpponent = (opponent: (typeof opponents)[0]) => {
     setOpponent(opponent.name);
     setDifficulty(opponent.difficulty);
   };
@@ -32,7 +67,7 @@ export default function SelectOpponentScreen() {
         if (router.canGoBack()) {
           router.back();
         } else {
-          router.push('/start');
+          router.push("/start");
         }
       }}
       subtitle="Select your next worthy adversary."
@@ -48,22 +83,39 @@ export default function SelectOpponentScreen() {
               accessibilityRole="button"
               key={opponent.name}
               onPress={() => handleSelectOpponent(opponent)}
-              style={[styles.card, selected && { borderColor: opponent.accent }]}
+              style={[
+                styles.card,
+                selected && { borderColor: opponent.accent },
+              ]}
             >
-              <View style={[styles.avatar, { backgroundColor: opponent.accent }]}>
-                <Text style={styles.avatarText}>{opponent.name.slice(0, 1)}</Text>
+              <View
+                style={[styles.avatar, { backgroundColor: opponent.accent }]}
+              >
+                <Text style={styles.avatarText}>
+                  {opponent.name.slice(0, 1)}
+                </Text>
               </View>
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>{opponent.name}</Text>
-                <Text style={styles.cardDescription}>{opponent.description}</Text>
+                <Text style={styles.cardDescription}>
+                  {opponent.description}
+                </Text>
               </View>
-              <View style={[styles.radio, selected && { backgroundColor: opponent.accent }]} />
+              <View
+                style={[
+                  styles.radio,
+                  selected && { backgroundColor: opponent.accent },
+                ]}
+              />
             </Pressable>
           );
         })}
       </View>
       <View style={styles.action}>
-        <GameButton label="ENTER ARENA" onPress={() => router.replace('/battle')} />
+        <GameButton
+          label="ENTER ARENA"
+          onPress={() => router.replace("/battle")}
+        />
       </View>
     </ScreenShell>
   );
@@ -74,26 +126,26 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: gameColors.panel,
-    borderColor: '#273449',
+    borderColor: "#273449",
     borderRadius: 16,
     borderWidth: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     minHeight: 86,
     padding: 14,
   },
   avatar: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 12,
     height: 56,
-    justifyContent: 'center',
+    justifyContent: "center",
     width: 56,
   },
   avatarText: {
-    color: '#07131c',
+    color: "#07131c",
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   cardCopy: {
     flex: 1,
@@ -102,7 +154,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: gameColors.text,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: 1,
   },
   cardDescription: {
@@ -112,7 +164,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   radio: {
-    backgroundColor: '#273449',
+    backgroundColor: "#273449",
     borderRadius: 7,
     height: 14,
     width: 14,

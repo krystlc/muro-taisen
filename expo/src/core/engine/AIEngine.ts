@@ -1,5 +1,5 @@
-import { Gem, GemColor, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
+import { Gem, GemColor, GemType } from "../models/Gem";
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from "./Board";
 
 export interface Move {
   column: number;
@@ -8,7 +8,10 @@ export interface Move {
 }
 
 export class AIEngine {
-  public static calculateBestMove(grid: BoardGrid, currentPiece: { gem1: Gem, gem2: Gem }): Move {
+  public static calculateBestMove(
+    grid: BoardGrid,
+    currentPiece: { gem1: Gem; gem2: Gem },
+  ): Move {
     let bestMove: Move = { column: 0, rotation: 0, score: -Infinity };
 
     // Brute force all possible moves (6 columns * 4 rotations = 24 combinations)
@@ -23,7 +26,12 @@ export class AIEngine {
 
     return bestMove;
   }
-  private static evaluateMove(grid: BoardGrid, piece: { gem1: Gem, gem2: Gem }, col: number, rot: number): number {
+  private static evaluateMove(
+    grid: BoardGrid,
+    piece: { gem1: Gem; gem2: Gem },
+    col: number,
+    rot: number,
+  ): number {
     let score = 0;
 
     const simulatedDrop = this.simulateDrop(grid, col, rot);
@@ -42,23 +50,40 @@ export class AIEngine {
     score += this.calculateAdjacencyScore(grid, piece.gem2, row2, col2);
 
     // 4. Reward for shattering (Immediate gratification)
-    if (piece.gem1.type === GemType.CRASH && this.isAdjacentToMatchingColor(grid, piece.gem1.color, row1, col1)) {
+    if (
+      piece.gem1.type === GemType.CRASH &&
+      this.isAdjacentToMatchingColor(grid, piece.gem1.color, row1, col1)
+    ) {
       score += 1000;
     }
     // Check gem2 as well, just in case the piece is rotated and gem2 is the crash gem
-    if (piece.gem2.type === GemType.CRASH && this.isAdjacentToMatchingColor(grid, piece.gem2.color, row2, col2)) {
+    if (
+      piece.gem2.type === GemType.CRASH &&
+      this.isAdjacentToMatchingColor(grid, piece.gem2.color, row2, col2)
+    ) {
       score += 1000;
     }
 
     return score;
   }
 
-  private static calculateAdjacencyScore(grid: BoardGrid, gem: Gem, r: number, c: number): number {
+  private static calculateAdjacencyScore(
+    grid: BoardGrid,
+    gem: Gem,
+    r: number,
+    c: number,
+  ): number {
     let bonus = 0;
-    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]]; // Up, Down, Right, Left
+    const directions = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]; // Up, Down, Right, Left
 
     for (const [dr, dc] of directions) {
-      const nr = r + dr, nc = c + dc;
+      const nr = r + dr,
+        nc = c + dc;
       if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
         const neighbor = grid[nr][nc];
         if (neighbor && neighbor.color === gem.color) {
@@ -67,7 +92,7 @@ export class AIEngine {
           if (dr === -1 && dc === 0) {
             bonus += 150;
           } else {
-            bonus += 50;  // Standard reward for side-by-side touching
+            bonus += 50; // Standard reward for side-by-side touching
           }
         }
       }
@@ -86,8 +111,21 @@ export class AIEngine {
     return BOARD_ROWS; // Column is full
   }
 
-  private static simulateDrop(grid: BoardGrid, col: number, rot: number): { isValid: boolean, row1: number, col1: number, row2: number, col2: number } {
-    let row1 = 0, col1 = col, row2 = 0, col2 = col;
+  private static simulateDrop(
+    grid: BoardGrid,
+    col: number,
+    rot: number,
+  ): {
+    isValid: boolean;
+    row1: number;
+    col1: number;
+    row2: number;
+    col2: number;
+  } {
+    let row1 = 0,
+      col1 = col,
+      row2 = 0,
+      col2 = col;
 
     switch (rot) {
       case 0: // Vertical: gem2 on top of gem1
@@ -97,7 +135,8 @@ export class AIEngine {
         break;
       case 1: // Horizontal: gem2 to the right of gem1
         col2 = col + 1;
-        if (col2 >= BOARD_COLS) return { isValid: false, row1: 0, col1: 0, row2: 0, col2: 0 }; // Wall collision
+        if (col2 >= BOARD_COLS)
+          return { isValid: false, row1: 0, col1: 0, row2: 0, col2: 0 }; // Wall collision
         row1 = this.getDropRow(grid, col1);
         row2 = this.getDropRow(grid, col2);
         break;
@@ -108,7 +147,8 @@ export class AIEngine {
         break;
       case 3: // Horizontal: gem2 to the left of gem1
         col2 = col - 1;
-        if (col2 < 0) return { isValid: false, row1: 0, col1: 0, row2: 0, col2: 0 }; // Wall collision
+        if (col2 < 0)
+          return { isValid: false, row1: 0, col1: 0, row2: 0, col2: 0 }; // Wall collision
         row1 = this.getDropRow(grid, col1);
         row2 = this.getDropRow(grid, col2);
         break;
@@ -122,8 +162,20 @@ export class AIEngine {
     return { isValid: true, row1, col1, row2, col2 };
   }
 
-  private static isAdjacentToMatchingColor(grid: BoardGrid, color: GemColor, r: number, c: number): boolean {
+  private static isAdjacentToMatchingColor(
+    grid: BoardGrid,
+    color: GemColor,
+    r: number,
+    c: number,
+  ): boolean {
     // Quick safeguard so we don't pass dummy gems into our adjacency calculator
-    return this.calculateAdjacencyScore(grid, { id: 'stub', color, type: GemType.NORMAL }, r, c) > 0;
+    return (
+      this.calculateAdjacencyScore(
+        grid,
+        { id: "stub", color, type: GemType.NORMAL },
+        r,
+        c,
+      ) > 0
+    );
   }
 }

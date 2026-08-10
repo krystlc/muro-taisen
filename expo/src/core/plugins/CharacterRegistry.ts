@@ -1,6 +1,6 @@
 // Attack patterns, portrait paths, monologues
 // src/core/plugins/CharacterRegistry.ts
-import { GemColor } from '../models/Gem';
+import { GemColor } from "../models/Gem";
 
 export interface CharacterConfig {
   id: string;
@@ -17,10 +17,10 @@ export interface CharacterConfig {
 }
 
 export const RyuCharacter: CharacterConfig = {
-  id: 'ryu',
-  name: 'Ryu',
-  avatarUrl: 'assets/portraits/ryu.png',
-  model3DPath: 'assets/models/ryu.glb',
+  id: "ryu",
+  name: "Ryu",
+  avatarUrl: "assets/portraits/ryu.png",
+  model3DPath: "assets/models/ryu.glb",
   // Classic Ryu Pattern: Solid columns of same colors
   attackPattern: [
     [GemColor.RED, GemColor.RED, GemColor.RED, GemColor.RED],
@@ -33,13 +33,13 @@ export const RyuCharacter: CharacterConfig = {
   monologues: {
     intro: "The true path of a warrior requires focus!",
     win: "You must defeat my Dragon Punch to stand a chance!",
-    loss: "My training... was not enough."
-  }
+    loss: "My training... was not enough.",
+  },
 };
 
 export class CharacterRegistry {
   private static characters: Map<string, CharacterConfig> = new Map([
-    [RyuCharacter.id, RyuCharacter]
+    [RyuCharacter.id, RyuCharacter],
   ]);
 
   public static registerCharacter(config: CharacterConfig) {

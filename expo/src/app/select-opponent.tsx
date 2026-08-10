@@ -1,1 +1,1 @@
-export { default } from '../screens/SelectOpponentScreen';
+export { default } from "../screens/SelectOpponentScreen";

@@ -1,11 +1,11 @@
 // Main tick loop & input dispatch
-import { BOARD_COLS, BOARD_ROWS, BoardGrid, Board } from './Board';
-import { Gem, GemColor, GemType } from '../models/Gem';
-import { PRNG } from './PRNG';
-import { GameStateValidator, GameStatus } from './GameStateValidator';
-import { InputAction } from '../../input/InputManager';
-import { Merger } from './Merger';
-import { ChainResolver } from './ChainResolver';
+import { BOARD_COLS, BOARD_ROWS, BoardGrid, Board } from "./Board";
+import { Gem, GemColor, GemType } from "../models/Gem";
+import { PRNG } from "./PRNG";
+import { GameStateValidator, GameStatus } from "./GameStateValidator";
+import { InputAction } from "../../input/InputManager";
+import { Merger } from "./Merger";
+import { ChainResolver } from "./ChainResolver";
 
 export type PieceRotation = 0 | 90 | 180 | 270;
 
@@ -50,7 +50,7 @@ export class GameEngine {
     this.prng = new PRNG(seed);
     this.state = {
       grid: Board.createEmptyGrid(),
-      status: 'PLAYING',
+      status: "PLAYING",
       score: 0,
       tickCount: 0,
       activePiece: this.createPiece(),
@@ -88,53 +88,53 @@ export class GameEngine {
   }
 
   public processGarbageQueue(shatteredGems: number = 0): void {
-      if (this.state.pendingGarbage === 0 && shatteredGems === 0) return;
+    if (this.state.pendingGarbage === 0 && shatteredGems === 0) return;
 
-      const reduction = Math.min(this.state.pendingGarbage, shatteredGems);
-      this.state.pendingGarbage -= reduction;
+    const reduction = Math.min(this.state.pendingGarbage, shatteredGems);
+    this.state.pendingGarbage -= reduction;
 
-      const outgoingAttack = shatteredGems - reduction;
-      if (outgoingAttack > 0 && this.onAttack) {
-        this.onAttack(outgoingAttack);
-      }
-
-      const count = this.state.pendingGarbage;
-
-      // If garbage count is massive (like BOARD_ROWS), fill columns systematically to hit the spawn column
-      if (count >= BOARD_ROWS) {
-        for (let r = 0; r < BOARD_ROWS; r++) {
-          for (let col = 0; col < BOARD_COLS; col++) {
-            if (this.state.grid[r][col] === null) {
-              this.state.grid[r][col] = {
-                id: `garbage-${this.pieceSequence++}`,
-                color: GemColor.BLUE,
-                type: GemType.COUNTER,
-                counterValue: 2,
-              };
-            }
-          }
-        }
-      } else {
-        // Standard random individual gem drop for smaller garbage counts
-        for (let i = 0; i < count; i++) {
-          const col = this.prng.nextInt(0, BOARD_COLS);
-          for (let r = 0; r < BOARD_ROWS; r++) {
-            if (this.state.grid[r][col] === null) {
-              this.state.grid[r][col] = {
-                id: `garbage-${this.pieceSequence++}`,
-                color: GemColor.BLUE,
-                type: GemType.COUNTER,
-                counterValue: 2,
-              };
-              break;
-            }
-          }
-        }
-      }
-
-      this.state.pendingGarbage = 0;
-      this.state.status = GameStateValidator.checkStatus(this.state.grid);
+    const outgoingAttack = shatteredGems - reduction;
+    if (outgoingAttack > 0 && this.onAttack) {
+      this.onAttack(outgoingAttack);
     }
+
+    const count = this.state.pendingGarbage;
+
+    // If garbage count is massive (like BOARD_ROWS), fill columns systematically to hit the spawn column
+    if (count >= BOARD_ROWS) {
+      for (let r = 0; r < BOARD_ROWS; r++) {
+        for (let col = 0; col < BOARD_COLS; col++) {
+          if (this.state.grid[r][col] === null) {
+            this.state.grid[r][col] = {
+              id: `garbage-${this.pieceSequence++}`,
+              color: GemColor.BLUE,
+              type: GemType.COUNTER,
+              counterValue: 2,
+            };
+          }
+        }
+      }
+    } else {
+      // Standard random individual gem drop for smaller garbage counts
+      for (let i = 0; i < count; i++) {
+        const col = this.prng.nextInt(0, BOARD_COLS);
+        for (let r = 0; r < BOARD_ROWS; r++) {
+          if (this.state.grid[r][col] === null) {
+            this.state.grid[r][col] = {
+              id: `garbage-${this.pieceSequence++}`,
+              color: GemColor.BLUE,
+              type: GemType.COUNTER,
+              counterValue: 2,
+            };
+            break;
+          }
+        }
+      }
+    }
+
+    this.state.pendingGarbage = 0;
+    this.state.status = GameStateValidator.checkStatus(this.state.grid);
+  }
 
   /**
    * Decrements all Counter Gems on the board by 1. Transforms them to NORMAL if they reach 0.
@@ -160,7 +160,7 @@ export class GameEngine {
   public tick(deltaMs: number): void {
     // Check game-over condition at the very start of every tick
     this.state.status = GameStateValidator.checkStatus(this.state.grid);
-    if (this.state.status === 'GAME_OVER') {
+    if (this.state.status === "GAME_OVER") {
       this.state.activePiece = null;
       return;
     }
@@ -174,17 +174,17 @@ export class GameEngine {
 
     let locked = false;
     for (const action of this.pendingInputs) {
-      if (action === 'MOVE_LEFT') {
+      if (action === "MOVE_LEFT") {
         this.tryMove(-1);
-      } else if (action === 'MOVE_RIGHT') {
+      } else if (action === "MOVE_RIGHT") {
         this.tryMove(1);
-      } else if (action === 'ROTATE_CW') {
+      } else if (action === "ROTATE_CW") {
         this.tryRotate(90);
-      } else if (action === 'ROTATE_CCW') {
+      } else if (action === "ROTATE_CCW") {
         this.tryRotate(-90);
-      } else if (action === 'SOFT_DROP') {
+      } else if (action === "SOFT_DROP") {
         if (!this.tryMoveDown()) locked = this.lockPiece();
-      } else if (action === 'HARD_DROP') {
+      } else if (action === "HARD_DROP") {
         locked = this.hardDrop();
       }
 
@@ -195,14 +195,22 @@ export class GameEngine {
     if (locked || !this.state.activePiece) return;
 
     this.gravityAccumulatorMs += Math.max(0, deltaMs);
-    while (this.gravityAccumulatorMs >= this.gravityIntervalMs && this.state.activePiece) {
+    while (
+      this.gravityAccumulatorMs >= this.gravityIntervalMs &&
+      this.state.activePiece
+    ) {
       this.gravityAccumulatorMs -= this.gravityIntervalMs;
       if (!this.tryMoveDown()) this.lockPiece();
     }
   }
 
   private createPiece(): ActivePiece {
-    const colors = [GemColor.RED, GemColor.BLUE, GemColor.YELLOW, GemColor.GREEN];
+    const colors = [
+      GemColor.RED,
+      GemColor.BLUE,
+      GemColor.YELLOW,
+      GemColor.GREEN,
+    ];
     const pivotColor = colors[this.prng.nextInt(0, colors.length)];
     const partnerColor = colors[this.prng.nextInt(0, colors.length)];
     const pieceId = this.pieceSequence++;
@@ -263,7 +271,8 @@ export class GameEngine {
   ): boolean {
     const coords = this.getPieceCoordinates(piece, row, column, rotation);
     const valid = coords.every(([gemRow, gemColumn]) => {
-      const isInBounds = gemRow >= 0 &&
+      const isInBounds =
+        gemRow >= 0 &&
         gemRow < BOARD_ROWS &&
         gemColumn >= 0 &&
         gemColumn < BOARD_COLS;
@@ -277,7 +286,11 @@ export class GameEngine {
 
   private tryMove(columnDelta: number): boolean {
     const piece = this.state.activePiece;
-    if (!piece || !this.canPlacePiece(piece, piece.row, piece.column + columnDelta)) return false;
+    if (
+      !piece ||
+      !this.canPlacePiece(piece, piece.row, piece.column + columnDelta)
+    )
+      return false;
 
     piece.column += columnDelta;
     return true;
@@ -297,7 +310,9 @@ export class GameEngine {
 
     const rotations: PieceRotation[] = [0, 90, 180, 270];
     const currentIndex = rotations.indexOf(piece.rotation);
-    const nextIndex = (currentIndex + (rotationDelta > 0 ? 1 : -1) + rotations.length) % rotations.length;
+    const nextIndex =
+      (currentIndex + (rotationDelta > 0 ? 1 : -1) + rotations.length) %
+      rotations.length;
     const nextRotation = rotations[nextIndex];
 
     // 1. Try default position
@@ -310,13 +325,20 @@ export class GameEngine {
     // Puzzle Fighter wall kicks are generally minimal.
     const kicks = [
       [0, -1], // Kick Left
-      [0, 1],  // Kick Right
-      [1, 0],  // Kick Up
+      [0, 1], // Kick Right
+      [1, 0], // Kick Up
       [-1, 0], // Kick Down
     ];
 
     for (const [rKick, cKick] of kicks) {
-      if (this.canPlacePiece(piece, piece.row + rKick, piece.column + cKick, nextRotation)) {
+      if (
+        this.canPlacePiece(
+          piece,
+          piece.row + rKick,
+          piece.column + cKick,
+          nextRotation,
+        )
+      ) {
         piece.rotation = nextRotation;
         piece.row += rKick;
         piece.column += cKick;
@@ -391,7 +413,7 @@ export class GameEngine {
       } else {
         totalShattered += chainResult.gemsShattered;
         // Optional: Increment this.state.score here based on chain combo multiplier!
-        this.state.score += chainResult.gemsShattered
+        this.state.score += chainResult.gemsShattered;
       }
     }
 
@@ -403,7 +425,7 @@ export class GameEngine {
 
     this.state.status = GameStateValidator.checkStatus(this.state.grid);
 
-    if (this.state.status === 'GAME_OVER') {
+    if (this.state.status === "GAME_OVER") {
       this.state.activePiece = null;
       return true;
     }
@@ -411,7 +433,7 @@ export class GameEngine {
     // 6. Pre-check spawn validity before instantiating the next piece
     const nextPiece = this.state.nextPiece;
     if (!this.canPlacePiece(nextPiece)) {
-      this.state.status = 'GAME_OVER';
+      this.state.status = "GAME_OVER";
       this.state.activePiece = null;
     } else {
       this.state.activePiece = nextPiece;

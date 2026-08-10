@@ -1,4 +1,4 @@
-import { Opponent } from './Opponent';
+import { Opponent } from "./Opponent";
 
 export class OpponentManager {
   private opponents: Opponent[] = [];

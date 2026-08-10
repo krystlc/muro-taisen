@@ -1,16 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEngine } from '../GameEngine';
-import { BOARD_COLS, BOARD_ROWS } from '../Board';
-import { GemColor, GemType } from '../../models/Gem';
+import { describe, it, expect, beforeEach } from "vitest";
+import { GameEngine } from "../GameEngine";
+import { BOARD_COLS, BOARD_ROWS } from "../Board";
+import { GemColor, GemType } from "../../models/Gem";
 
-describe('Independent Column Gravity & Piece Separation', () => {
+describe("Independent Column Gravity & Piece Separation", () => {
   let engine: GameEngine;
 
   beforeEach(() => {
-    engine = new GameEngine('gravity_test_seed');
+    engine = new GameEngine("gravity_test_seed");
   });
 
-  it('separates paired gems and allows independent falling if columns have uneven heights', () => {
+  it("separates paired gems and allows independent falling if columns have uneven heights", () => {
     const state = engine.getState();
     const grid = state.grid;
 
@@ -22,14 +22,22 @@ describe('Independent Column Gravity & Piece Separation', () => {
     }
 
     // Build a taller stack on column 3 (blocks row 0 and row 1)
-    grid[0][3] = { id: 'support-3-0', color: GemColor.RED, type: GemType.NORMAL };
-    grid[1][3] = { id: 'support-3-1', color: GemColor.RED, type: GemType.NORMAL };
+    grid[0][3] = {
+      id: "support-3-0",
+      color: GemColor.RED,
+      type: GemType.NORMAL,
+    };
+    grid[1][3] = {
+      id: "support-3-1",
+      color: GemColor.RED,
+      type: GemType.NORMAL,
+    };
 
     // Set active piece explicitly: horizontal rotation across column 2 and 3 at row 2
     state.activePiece = {
       gems: [
-        { id: 'piece-gem-2', color: GemColor.BLUE, type: GemType.NORMAL },
-        { id: 'piece-gem-3', color: GemColor.BLUE, type: GemType.NORMAL },
+        { id: "piece-gem-2", color: GemColor.BLUE, type: GemType.NORMAL },
+        { id: "piece-gem-3", color: GemColor.BLUE, type: GemType.NORMAL },
       ],
       row: 2,
       column: 2,
@@ -38,7 +46,7 @@ describe('Independent Column Gravity & Piece Separation', () => {
 
     // Hard drop the piece. Gem at (2,3) hits the stack at row 2 (above support at row 1).
     // Gem at (2,2) has empty space underneath all the way to row 0 and must fall independently.
-    engine.queueInput('HARD_DROP');
+    engine.queueInput("HARD_DROP");
     engine.tick(0);
 
     const updatedState = engine.getState();

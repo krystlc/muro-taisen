@@ -19,13 +19,17 @@ export class GameLogger {
     }
 
     console.group(`🎲 [GameEngine Action]: ${action}`);
-    console.log(`Board Stats: ${totalGems} active gems | ${powerGems.size} unique Power Gems`);
+    console.log(
+      `Board Stats: ${totalGems} active gems | ${powerGems.size} unique Power Gems`,
+    );
     if (extra) console.table(extra);
     console.groupEnd();
   }
 
   static logExplosion(powerGemId: string, color: string, count: number) {
     if (!this.enabled) return;
-    console.warn(`💥 EXPLOSION: Power Gem [${powerGemId}] (${color}) shattered ${count} connected tiles!`);
+    console.warn(
+      `💥 EXPLOSION: Power Gem [${powerGemId}] (${color}) shattered ${count} connected tiles!`,
+    );
   }
 }

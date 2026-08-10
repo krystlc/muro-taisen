@@ -1,9 +1,9 @@
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 
-const placeholderAsset = require('../../assets/images/react-logo.png');
+const placeholderAsset = require("../../assets/images/react-logo.png");
 
 export default function Index() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function Index() {
 
   useEffect(() => {
     if (assetsReady) {
-      router.replace('/start');
+      router.replace("/start");
     }
   }, [assetsReady, router]);
 
@@ -26,7 +26,11 @@ export default function Index() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.logoHalo}>
-        <Image accessibilityLabel="Loading asset" source={placeholderAsset} style={styles.logo} />
+        <Image
+          accessibilityLabel="Loading asset"
+          source={placeholderAsset}
+          style={styles.logo}
+        />
       </View>
       <Text style={styles.title}>MURO TAISEN</Text>
       <Text style={styles.caption}>PREPARING THE ARENA</Text>
@@ -38,22 +42,22 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    backgroundColor: '#080b14',
+    alignItems: "center",
+    backgroundColor: "#080b14",
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 32,
   },
   logoHalo: {
-    alignItems: 'center',
-    backgroundColor: '#101b2a',
-    borderColor: '#1f5368',
+    alignItems: "center",
+    backgroundColor: "#101b2a",
+    borderColor: "#1f5368",
     borderRadius: 92,
     borderWidth: 1,
     height: 184,
-    justifyContent: 'center',
+    justifyContent: "center",
     marginBottom: 36,
-    shadowColor: '#39d8ff',
+    shadowColor: "#39d8ff",
     shadowOpacity: 0.25,
     shadowRadius: 32,
     width: 184,
@@ -63,15 +67,15 @@ const styles = StyleSheet.create({
     width: 112,
   },
   title: {
-    color: '#f4f8ff',
+    color: "#f4f8ff",
     fontSize: 30,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: 6,
   },
   caption: {
-    color: '#56d8ff',
+    color: "#56d8ff",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 3,
     marginTop: 14,
   },
@@ -80,10 +84,10 @@ const styles = StyleSheet.create({
   },
   version: {
     bottom: 34,
-    color: '#526074',
+    color: "#526074",
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 2,
-    position: 'absolute',
+    position: "absolute",
   },
 });

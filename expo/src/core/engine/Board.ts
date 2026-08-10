@@ -1,5 +1,5 @@
 // 6x12 grid state, collision, falling
-import { Gem } from '../models/Gem';
+import { Gem } from "../models/Gem";
 
 // 12 visible rows + 1 hidden overflow row at the top
 export const BOARD_ROWS = 13;
@@ -18,7 +18,9 @@ export class Board {
    * Creates an empty 6x13 grid.
    */
   public static createEmptyGrid(): BoardGrid {
-    const grid = Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
+    const grid = Array.from({ length: BOARD_ROWS }, () =>
+      Array(BOARD_COLS).fill(null),
+    );
     return grid;
   }
 

@@ -1,14 +1,14 @@
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { GameButton, ScreenShell, gameColors } from '../components/game-ui';
-import { useGameStore, type DifficultyLabel } from '../store/useGameStore';
+import { GameButton, ScreenShell, gameColors } from "../components/game-ui";
+import { useGameStore, type DifficultyLabel } from "../store/useGameStore";
 
 const difficulties: { description: string; label: DifficultyLabel }[] = [
-  { description: 'Take your time and learn the arena.', label: 'ROOKIE' },
-  { description: 'A fair fight with a little pressure.', label: 'TAISEN' },
-  { description: 'No mistakes. No second chances.', label: 'MASTER' },
+  { description: "Take your time and learn the arena.", label: "ROOKIE" },
+  { description: "A fair fight with a little pressure.", label: "TAISEN" },
+  { description: "No mistakes. No second chances.", label: "MASTER" },
 ];
 
 export default function DifficultySelectScreen() {
@@ -23,7 +23,7 @@ export default function DifficultySelectScreen() {
         if (router.canGoBack()) {
           router.back();
         } else {
-          router.push('/character-select');
+          router.push("/character-select");
         }
       }}
       subtitle="Set the pace of the battle."
@@ -41,18 +41,27 @@ export default function DifficultySelectScreen() {
               onPress={() => setSelectedDifficulty(difficulty.label)}
               style={[styles.option, selected && styles.selectedOption]}
             >
-              <Text style={[styles.index, selected && styles.selectedText]}>{`0${index + 1}`}</Text>
+              <Text
+                style={[styles.index, selected && styles.selectedText]}
+              >{`0${index + 1}`}</Text>
               <View style={styles.copy}>
-                <Text style={[styles.label, selected && styles.selectedText]}>{difficulty.label}</Text>
+                <Text style={[styles.label, selected && styles.selectedText]}>
+                  {difficulty.label}
+                </Text>
                 <Text style={styles.description}>{difficulty.description}</Text>
               </View>
-              <Text style={[styles.chevron, selected && styles.selectedText]}>›</Text>
+              <Text style={[styles.chevron, selected && styles.selectedText]}>
+                ›
+              </Text>
             </Pressable>
           );
         })}
       </View>
       <View style={styles.action}>
-        <GameButton label="ENTER ARENA" onPress={() => router.push('/battle')} />
+        <GameButton
+          label="ENTER ARENA"
+          onPress={() => router.push("/battle")}
+        />
       </View>
     </ScreenShell>
   );
@@ -63,23 +72,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   option: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: gameColors.panel,
-    borderColor: '#273449',
+    borderColor: "#273449",
     borderRadius: 16,
     borderWidth: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     minHeight: 82,
     paddingHorizontal: 18,
   },
   selectedOption: {
-    backgroundColor: '#152d3a',
+    backgroundColor: "#152d3a",
     borderColor: gameColors.cyan,
   },
   index: {
-    color: '#526074',
+    color: "#526074",
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     width: 34,
   },
   copy: {
@@ -88,7 +97,7 @@ const styles = StyleSheet.create({
   label: {
     color: gameColors.text,
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: 1,
   },
   selectedText: {
@@ -101,9 +110,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   chevron: {
-    color: '#526074',
+    color: "#526074",
     fontSize: 28,
-    fontWeight: '300',
+    fontWeight: "300",
   },
   action: {
     marginTop: 28,

@@ -1,15 +1,25 @@
 // src/core/engine/CounterGem.test.ts
-import { describe, it, expect } from 'vitest';
-import { GemColor, GemType } from '../../models/Gem';
-import { Board } from '../Board';
-import { ChainResolver } from '../ChainResolver';
-import { GameEngine } from '../GameEngine';
+import { describe, it, expect } from "vitest";
+import { GemColor, GemType } from "../../models/Gem";
+import { Board } from "../Board";
+import { ChainResolver } from "../ChainResolver";
+import { GameEngine } from "../GameEngine";
 
-describe('Counter Gem (Garbage) Mechanics', () => {
-  it('should decrement the counterValue of all Counter Gems by 1 at the end of a turn cycle', () => {
+describe("Counter Gem (Garbage) Mechanics", () => {
+  it("should decrement the counterValue of all Counter Gems by 1 at the end of a turn cycle", () => {
     const grid = Board.createEmptyGrid();
-    grid[0][0] = { id: 'c1', color: GemColor.RED, type: GemType.COUNTER, counterValue: 5 };
-    grid[1][0] = { id: 'c2', color: GemColor.BLUE, type: GemType.COUNTER, counterValue: 2 };
+    grid[0][0] = {
+      id: "c1",
+      color: GemColor.RED,
+      type: GemType.COUNTER,
+      counterValue: 5,
+    };
+    grid[1][0] = {
+      id: "c2",
+      color: GemColor.BLUE,
+      type: GemType.COUNTER,
+      counterValue: 2,
+    };
 
     GameEngine.decrementCounters(grid);
 
@@ -17,9 +27,14 @@ describe('Counter Gem (Garbage) Mechanics', () => {
     expect(grid[1][0]?.counterValue).toBe(1);
   });
 
-  it('should transform a Counter Gem into a Normal Gem when its counterValue decrements down to 0', () => {
+  it("should transform a Counter Gem into a Normal Gem when its counterValue decrements down to 0", () => {
     const grid = Board.createEmptyGrid();
-    grid[0][0] = { id: 'c1', color: GemColor.GREEN, type: GemType.COUNTER, counterValue: 1 };
+    grid[0][0] = {
+      id: "c1",
+      color: GemColor.GREEN,
+      type: GemType.COUNTER,
+      counterValue: 1,
+    };
 
     GameEngine.decrementCounters(grid);
 
@@ -28,13 +43,18 @@ describe('Counter Gem (Garbage) Mechanics', () => {
     expect(grid[0][0]?.color).toBe(GemColor.GREEN);
   });
 
-  it('should immediately thaw an adjacent Counter Gem during a crash explosion regardless of its counter value', () => {
+  it("should immediately thaw an adjacent Counter Gem during a crash explosion regardless of its counter value", () => {
     const grid = Board.createEmptyGrid();
 
     // Setup: Blue normal & Crash pair, adjacent to a Yellow Counter Gem with a high timer (5)
-    grid[0][0] = { id: '1', color: GemColor.BLUE, type: GemType.NORMAL };
-    grid[1][0] = { id: '2', color: GemColor.BLUE, type: GemType.CRASH };
-    grid[0][1] = { id: 'c1', color: GemColor.YELLOW, type: GemType.COUNTER, counterValue: 5 };
+    grid[0][0] = { id: "1", color: GemColor.BLUE, type: GemType.NORMAL };
+    grid[1][0] = { id: "2", color: GemColor.BLUE, type: GemType.CRASH };
+    grid[0][1] = {
+      id: "c1",
+      color: GemColor.YELLOW,
+      type: GemType.COUNTER,
+      counterValue: 5,
+    };
 
     ChainResolver.resolveStep(grid);
 
@@ -48,13 +68,18 @@ describe('Counter Gem (Garbage) Mechanics', () => {
     expect(grid[0][1]?.counterValue).toBeUndefined();
   });
 
-  it('should allow a newly thawed counter gem to survive the current explosion tick without self-destructing', () => {
+  it("should allow a newly thawed counter gem to survive the current explosion tick without self-destructing", () => {
     const grid = Board.createEmptyGrid();
 
     // Setup: Red Crash detonates Red Normal. Adjacent is a Red Counter Gem.
-    grid[0][0] = { id: '1', color: GemColor.RED, type: GemType.NORMAL };
-    grid[1][0] = { id: '2', color: GemColor.RED, type: GemType.CRASH };
-    grid[0][1] = { id: 'c1', color: GemColor.RED, type: GemType.COUNTER, counterValue: 3 };
+    grid[0][0] = { id: "1", color: GemColor.RED, type: GemType.NORMAL };
+    grid[1][0] = { id: "2", color: GemColor.RED, type: GemType.CRASH };
+    grid[0][1] = {
+      id: "c1",
+      color: GemColor.RED,
+      type: GemType.COUNTER,
+      counterValue: 3,
+    };
 
     ChainResolver.resolveStep(grid);
 

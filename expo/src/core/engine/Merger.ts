@@ -1,5 +1,5 @@
-import { GemType } from '../models/Gem';
-import { BOARD_COLS, BOARD_ROWS, BoardGrid } from './Board';
+import { GemType } from "../models/Gem";
+import { BOARD_COLS, BOARD_ROWS, BoardGrid } from "./Board";
 
 export class Merger {
   /**
@@ -16,7 +16,11 @@ export class Merger {
         // Determine max rectangular dimensions starting at (r, c)
         const targetColor = gem.color;
         let maxW = 0;
-        while (c + maxW < BOARD_COLS && grid[r][c + maxW]?.color === targetColor && grid[r][c + maxW]?.type === GemType.NORMAL) {
+        while (
+          c + maxW < BOARD_COLS &&
+          grid[r][c + maxW]?.color === targetColor &&
+          grid[r][c + maxW]?.type === GemType.NORMAL
+        ) {
           maxW++;
         }
 
@@ -27,7 +31,11 @@ export class Merger {
         while (r + maxH < BOARD_ROWS && validRect) {
           for (let w = 0; w < maxW; w++) {
             const checkGem = grid[r + maxH][c + w];
-            if (!checkGem || checkGem.color !== targetColor || checkGem.type !== GemType.NORMAL) {
+            if (
+              !checkGem ||
+              checkGem.color !== targetColor ||
+              checkGem.type !== GemType.NORMAL
+            ) {
               validRect = false;
               break;
             }

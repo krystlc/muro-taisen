@@ -1,7 +1,8 @@
 export interface DamageEvent {
-  shatteredCount: number;         // Total normal/crash gems destroyed in this chain step
-  chainLength: number;            // The current combo multiplier (1 for initial shatter, 2+ for gravity cascades)
-  powerGemsDestroyed: {           // Dimensions of any Power Gems destroyed
+  shatteredCount: number; // Total normal/crash gems destroyed in this chain step
+  chainLength: number; // The current combo multiplier (1 for initial shatter, 2+ for gravity cascades)
+  powerGemsDestroyed: {
+    // Dimensions of any Power Gems destroyed
     width: number;
     height: number;
   }[];
@@ -27,7 +28,8 @@ export class DamageCalculator {
     const chainDamage = Math.round(baseDamage * chainMultiplier);
 
     const powerGemBonus = event.powerGemsDestroyed.reduce(
-      (bonus, powerGem) => bonus + Math.max(0, powerGem.width * powerGem.height) * 3,
+      (bonus, powerGem) =>
+        bonus + Math.max(0, powerGem.width * powerGem.height) * 3,
       0,
     );
 

@@ -1,9 +1,12 @@
 // src/core/engine/ChainResolver.ts
-import { Gem, GemType } from '../models/Gem';
-import { BoardGrid, BOARD_ROWS, BOARD_COLS } from './Board';
+import { Gem, GemType } from "../models/Gem";
+import { BoardGrid, BOARD_ROWS, BOARD_COLS } from "./Board";
 
 export class ChainResolver {
-  public static resolveStep(grid: BoardGrid): { gemsShattered: number; powerGemIdsShattered: Set<string> } {
+  public static resolveStep(grid: BoardGrid): {
+    gemsShattered: number;
+    powerGemIdsShattered: Set<string>;
+  } {
     let gemsShattered = 0;
     const powerGemIdsShattered = new Set<string>();
     const gemsToRemove = new Set<string>();
@@ -19,8 +22,8 @@ export class ChainResolver {
         const startGem = grid[r][c];
         if (!startGem || startGem.type === GemType.COUNTER) continue;
 
-        const cluster: Array<{ r: number; c: number; gem: Gem }> = [];
-        const queue: Array<{ r: number; c: number }> = [{ r, c }];
+        const cluster: { r: number; c: number; gem: Gem }[] = [];
+        const queue: { r: number; c: number }[] = [{ r, c }];
         const visitedCluster = new Set<string>();
         visitedCluster.add(startKey);
 
@@ -36,7 +39,12 @@ export class ChainResolver {
           if (currGem.type === GemType.NORMAL) hasNormalGem = true;
           if (currGem.powerGemId) powerGemIdsShattered.add(currGem.powerGemId);
 
-          const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+          const directions = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ];
           for (const [dr, dc] of directions) {
             const nr = curr.r + dr;
             const nc = curr.c + dc;
@@ -58,14 +66,19 @@ export class ChainResolver {
           }
         }
 
-        visitedCluster.forEach(k => visitedGlobal.add(k));
+        visitedCluster.forEach((k) => visitedGlobal.add(k));
 
         if (hasCrashGem && hasNormalGem) {
-          cluster.forEach(item => gemsToRemove.add(`${item.r},${item.c}`));
+          cluster.forEach((item) => gemsToRemove.add(`${item.r},${item.c}`));
 
           // ONLY thaw adjacent counters. Do NOT destroy different colored normal gems.
-          cluster.forEach(curr => {
-            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+          cluster.forEach((curr) => {
+            const directions = [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ];
             for (const [dr, dc] of directions) {
               const nr = curr.r + dr;
               const nc = curr.c + dc;
@@ -89,7 +102,7 @@ export class ChainResolver {
       const currentGemList = Array.from(gemsToRemove);
 
       for (const coord of currentGemList) {
-        const [r, c] = coord.split(',').map(Number);
+        const [r, c] = coord.split(",").map(Number);
         const gem = grid[r][c];
 
         if (gem?.powerGemId && !powerGemIdsShattered.has(gem.powerGemId)) {
@@ -109,16 +122,16 @@ export class ChainResolver {
       }
     }
 
-    gemsToRemove.forEach(coord => {
-      const [r, c] = coord.split(',').map(Number);
+    gemsToRemove.forEach((coord) => {
+      const [r, c] = coord.split(",").map(Number);
       if (grid[r][c] !== null) {
         grid[r][c] = null;
         gemsShattered++;
       }
     });
 
-    countersToThaw.forEach(coord => {
-      const [r, c] = coord.split(',').map(Number);
+    countersToThaw.forEach((coord) => {
+      const [r, c] = coord.split(",").map(Number);
       const gem = grid[r][c];
       if (gem?.type === GemType.COUNTER) {
         gem.type = GemType.NORMAL;
@@ -129,7 +142,11 @@ export class ChainResolver {
     return { gemsShattered, powerGemIdsShattered };
   }
 
-  public static resolveRainbowGem(grid: BoardGrid, row: number, col: number): void {
+  public static resolveRainbowGem(
+    grid: BoardGrid,
+    row: number,
+    col: number,
+  ): void {
     const rainbowGem = grid[row]?.[col];
     if (!rainbowGem || rainbowGem.type !== GemType.RAINBOW) return;
 
@@ -174,7 +191,10 @@ export class ChainResolver {
                     break;
                   }
                   const cellBelow = grid[belowRow][pc];
-                  if (cellBelow !== null && cellBelow.powerGemId !== gem.powerGemId) {
+                  if (
+                    cellBelow !== null &&
+                    cellBelow.powerGemId !== gem.powerGemId
+                  ) {
                     canFall = false;
                     break;
                   }
@@ -193,7 +213,7 @@ export class ChainResolver {
                   }
                 }
               }
-              pieces.forEach(p => {
+              pieces.forEach((p) => {
                 grid[p.r - 1][p.c] = p.g;
               });
               movedThisPass = true;
@@ -214,15 +234,18 @@ export class ChainResolver {
     return anyMoved;
   }
 
-  public static calculateGarbage(params: { gemsShattered: number; chainNumber: number }): number {
-      const { gemsShattered, chainNumber } = params;
-      if (gemsShattered <= 0) return 0;
+  public static calculateGarbage(params: {
+    gemsShattered: number;
+    chainNumber: number;
+  }): number {
+    const { gemsShattered, chainNumber } = params;
+    if (gemsShattered <= 0) return 0;
 
-      // Base garbage calculation (e.g., roughly 1 garbage per 2-3 gems, or a direct scaling)
-      // Applying a chain bonus multiplier (chainNumber 1 = 1x, chainNumber 2 = 3x, etc.)
-      const baseGarbage = Math.floor(gemsShattered / 2);
-      const chainMultiplier = Math.max(1, chainNumber * 2 - 1);
+    // Base garbage calculation (e.g., roughly 1 garbage per 2-3 gems, or a direct scaling)
+    // Applying a chain bonus multiplier (chainNumber 1 = 1x, chainNumber 2 = 3x, etc.)
+    const baseGarbage = Math.floor(gemsShattered / 2);
+    const chainMultiplier = Math.max(1, chainNumber * 2 - 1);
 
-      return baseGarbage * chainMultiplier;
-    }
+    return baseGarbage * chainMultiplier;
+  }
 }

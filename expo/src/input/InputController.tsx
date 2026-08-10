@@ -1,25 +1,38 @@
-import React from 'react';
-import { View, Platform, StyleSheet } from 'react-native';
-import { useKeyboardInput } from './useKeyboardInput';
-import { useTouchGestures } from './useTouchGestures';
-import { GameEngine } from '@/core/engine/GameEngine';
+import React from "react";
+import { View, Platform, StyleSheet } from "react-native";
+import { useKeyboardInput } from "./useKeyboardInput";
+import { useTouchGestures } from "./useTouchGestures";
+import { GameEngine } from "@/core/engine/GameEngine";
+import { GameAction } from "@/hooks/useGameServer";
 
 interface InputControllerProps {
   engineRef: React.RefObject<GameEngine>;
   enabled: boolean;
   children: React.ReactNode;
-  onAction?: (type: 'DROP' | 'ROTATE' | 'MOVE') => void;
+  onAction?: (type: GameAction) => void;
 }
 
-export function InputController({ engineRef, enabled, children, onAction }: InputControllerProps) {
+export function InputController({
+  engineRef,
+  enabled,
+  children,
+  onAction,
+}: InputControllerProps) {
   // Hook up web listeners if running on web
-  useKeyboardInput(engineRef, Platform.OS === 'web' && enabled, onAction);
+  useKeyboardInput(engineRef, Platform.OS === "web" && enabled, onAction);
 
   // Get touch pan responders for mobile
-  const panResponder = useTouchGestures(engineRef, Platform.OS !== 'web' && enabled, onAction);
+  const panResponder = useTouchGestures(
+    engineRef,
+    Platform.OS !== "web" && enabled,
+    onAction,
+  );
 
   return (
-    <View style={styles.container} {...(Platform.OS !== 'web' ? panResponder.panHandlers : {})}>
+    <View
+      style={styles.container}
+      {...(Platform.OS !== "web" ? panResponder.panHandlers : {})}
+    >
       {children}
     </View>
   );
@@ -28,6 +41,6 @@ export function InputController({ engineRef, enabled, children, onAction }: Inpu
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: '100%',
+    width: "100%",
   },
 });
