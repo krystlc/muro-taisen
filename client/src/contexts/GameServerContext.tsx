@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import React, { createContext, useContext } from "react";
 import { useGameServer } from "../hooks/useGameServer";
 
 const GameServerContext = createContext<ReturnType<

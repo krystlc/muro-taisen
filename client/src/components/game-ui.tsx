@@ -1,6 +1,6 @@
-import type { ReactNode } from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "../../../expo/node_modules/client/node_modules/.pnpm/react-native-safe-area-context@5.6.2_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1_gady5hfcei6vn44ywdyhwdxnau/node_modules/react-native-safe-area-context/src";
+import { SafeAreaView } from "react-native-safe-area-context/src";
 
 import { gameColors } from "./game-theme";
 

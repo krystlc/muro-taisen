@@ -1,5 +1,5 @@
 // src/core/engine/CounterGem.test.ts
-import { describe, it, expect } from ".pnpm/vitest@4.1.10_@types+node@26.1.2_vite@8.2.0_@types+node@26.1.2_terser@5.49.0_yaml@2.9.0_/node_modules/vitest/dist";
+import { describe, it, expect } from "vitest/dist";
 import { GemColor, GemType } from "../../models/Gem";
 import { Board } from "../Board";
 import { ChainResolver } from "../ChainResolver";

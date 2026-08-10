@@ -1,9 +1,9 @@
-import { Image } from ".pnpm/expo-image@3.0.11_expo@54.0.36_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_lg5a4se4fgep425qkadijd2pfa/node_modules/expo-image/src";
-import * as SplashScreen from ".pnpm/expo-splash-screen@31.0.13_expo@54.0.36_typescript@5.9.3/node_modules/expo-splash-screen/src";
-import { useState } from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import { Image } from "expo-image/src";
+import * as SplashScreen from "expo-splash-screen/src";
+import { useState } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
-import Animated, { Easing, Keyframe } from "../../../expo/client/node_modules/.pnpm/react-native-reanimated@4.1.7_react-native-worklets@0.5.1_@babel+core@7.29.7_react-native@0.8_ox2fo7mriggmlgyo2hmf5ggola/node_modules/react-native-reanimated/src";
-import { scheduleOnRN } from "../../../expo/client/node_modules/.pnpm/react-native-worklets@0.5.1_@babel+core@7.29.7_react-native@0.81.5_@babel+core@7.29.7_@types+_trc7tgs77m5tdbrh5auorqvjgq/node_modules/react-native-worklets/src";
+import Animated, { Easing, Keyframe } from "react-native-reanimated/src";
+import { scheduleOnRN } from "react-native-worklets/src";
 
 const INITIAL_SCALE_FACTOR = Dimensions.get("screen").height / 90;
 const DURATION = 600;

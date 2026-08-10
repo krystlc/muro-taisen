@@ -1,4 +1,4 @@
-import React from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import React from "react";
 import { View, Platform, StyleSheet } from "react-native";
 import { useKeyboardInput } from "./useKeyboardInput";
 import { useTouchGestures } from "./useTouchGestures";

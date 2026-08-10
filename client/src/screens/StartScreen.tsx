@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { StatusBar } from ".pnpm/expo-status-bar@3.0.9_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-status-bar/src/StatusBar";
+import { StatusBar } from "expo-status-bar";
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,7 @@ import {
 
 import { GameButton } from "../components/game-ui";
 import { useGameServerContext } from "../contexts/GameServerContext";
-import { useEffect } from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import { useEffect } from "react";
 
 export default function StartScreen() {
   const router = useRouter();

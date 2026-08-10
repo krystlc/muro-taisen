@@ -1,5 +1,5 @@
 // src/ui/components/ScoreOverlay.tsx
-import React from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
 export interface ScoreOverlayProps {

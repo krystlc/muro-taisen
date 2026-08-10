@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 // 1. ADD 'GAME_OVER' and 'PLAYER_LEFT' to the valid action types
 export type GameAction = {

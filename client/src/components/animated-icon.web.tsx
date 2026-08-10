@@ -1,6 +1,6 @@
-import { Image } from ".pnpm/expo-image@3.0.11_expo@54.0.36_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__react@1_lg5a4se4fgep425qkadijd2pfa/node_modules/expo-image/src";
+import { Image } from "expo-image/src";
 import { StyleSheet, View } from "react-native";
-import Animated, { Keyframe, Easing } from "../../../expo/client/node_modules/.pnpm/react-native-reanimated@4.1.7_react-native-worklets@0.5.1_@babel+core@7.29.7_react-native@0.8_ox2fo7mriggmlgyo2hmf5ggola/node_modules/react-native-reanimated/src";
+import Animated, { Keyframe, Easing } from "react-native-reanimated/src";
 
 import classes from "./animated-icon.module.css";
 const DURATION = 300;

@@ -1,4 +1,4 @@
-import { create } from ".pnpm/zustand@5.0.14_@types+react@19.1.17_react@19.1.0_use-sync-external-store@1.6.0_react@19.1.0_/node_modules/zustand";
+import { create } from "zustand";
 
 export type CharacterName = "MIZU" | "KIBA" | "RAI";
 export type DifficultyLabel = "ROOKIE" | "TAISEN" | "MASTER";

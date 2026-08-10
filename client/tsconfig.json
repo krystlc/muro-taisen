@@ -15,6 +15,8 @@
     "../client/**/*.ts",
     "../client/**/*.tsx",
     "../client/.expo/types/**/*.ts",
-    "../client/expo-env.d.ts"
+    "../client/expo-env.d.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
   ]
 }

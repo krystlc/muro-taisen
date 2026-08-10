@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from ".pnpm/vitest@4.1.10_@types+node@26.1.2_vite@8.2.0_@types+node@26.1.2_terser@5.49.0_yaml@2.9.0_/node_modules/vitest/dist";
+import { describe, it, expect, beforeEach } from "vitest/dist";
 import { GameEngine } from "../GameEngine";
 import { BOARD_COLS, BOARD_ROWS } from "../Board";
 import { GemColor, GemType } from "../../models/Gem";

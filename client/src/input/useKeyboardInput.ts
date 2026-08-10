@@ -1,6 +1,6 @@
 import { GameEngine } from "../core/engine/GameEngine";
 import { GameAction } from "../hooks/useGameServer";
-import { useEffect } from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import { useEffect } from "react";
 
 export function useKeyboardInput(
   engineRef: React.RefObject<GameEngine>,

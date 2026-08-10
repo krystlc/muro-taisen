@@ -1,4 +1,4 @@
-import { useEffect, useState } from ".pnpm/@types+react@19.1.17/node_modules/@types/react";
+import { useEffect, useState } from "react";
 import { useColorScheme as useRNColorScheme } from "react-native";
 
 /**
