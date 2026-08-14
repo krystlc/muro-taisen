@@ -7,7 +7,7 @@ export type GameAction = {
   payload?: any;
 };
 
-const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8080";
+const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8000";
 const serverHost = new URL(HOSTNAME).host;
 
 export function useGameServer() {
