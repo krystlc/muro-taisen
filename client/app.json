@@ -32,6 +32,14 @@
           "image": "./assets/images/react-logo.png",
           "imageWidth": 112
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "taisen-muro",
+          "organization": "alex-vr"
+        }
       ]
     ],
     "experiments": {

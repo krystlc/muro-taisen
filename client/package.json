@@ -9,6 +9,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "@react-three/fiber": "^9.7.0",
+    "@sentry/react-native": "^8.23.0",
     "@shopify/react-native-skia": "2.2.12",
     "expo": "^54.0.22",
     "expo-constants": "~18.0.10",
