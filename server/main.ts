@@ -184,5 +184,5 @@ function broadcastToRoom(roomId: string, payload: any, excludeWs?: WebSocket) {
   }
 }
 
-app.listen({ port: 8000 });
+await app.listen({ port: 8000 });
 log.info("Server running on http://0.0.0.0:8000");
