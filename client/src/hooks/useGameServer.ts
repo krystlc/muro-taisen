@@ -7,7 +7,7 @@ export type GameAction = {
   payload?: any;
 };
 
-const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8000";
+const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8080";
 const serverHost = new URL(HOSTNAME).host;
 
 export function useGameServer() {
@@ -60,7 +60,7 @@ export function useGameServer() {
     const { userId, token } = await authRes.json();
     setUserId(userId);
 
-    const ws = new WebSocket(`ws://${serverHost}`);
+    const ws = new WebSocket(`ws://${serverHost}/ws`);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "AUTH", token }));
