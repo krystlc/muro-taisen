@@ -1,6 +1,11 @@
 import * as log from "jsr:@std/log";
 import { encode, decode } from "@gz/jwt";
+import * as Sentry from "npm:@sentry/deno";
 import { Application, Router, Context, send } from "https://deno.land/x/oak@v12.0.0/mod.ts";
+
+Sentry.init({
+  dsn: "https://79518bddae8e1cad68cae1dde1498a50@o4511911256915968.ingest.us.sentry.io/4511911259865088",
+});
 
 const JWT_SECRET = Deno.env.get("JWT_SECRET") || "super-secret-fallback-key-32-chars!";
 
