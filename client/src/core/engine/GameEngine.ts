@@ -449,4 +449,23 @@ export class GameEngine {
   public getState(): GameState {
     return this.state;
   }
+
+  /**
+   * Generates a deterministic hash of the board grid.
+   */
+  public getBoardHash(): string {
+    return JSON.stringify(this.state.grid);
+  }
+
+  /**
+   * Returns a serializable snapshot of the board and active piece for synchronization.
+   */
+  public getSnapshot(): { grid: BoardGrid; activePiece: ActivePiece | null; score: number; status: GameStatus } {
+    return {
+      grid: this.state.grid,
+      activePiece: this.state.activePiece,
+      score: this.state.score,
+      status: this.state.status,
+    };
+  }
 }

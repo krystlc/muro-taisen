@@ -54,22 +54,16 @@ export default function BattleScreen() {
     : player2.name;
 
   const engineRef = useRef<GameEngine | null>(null);
-  const opponentEngineRef = useRef<GameEngine | null>(null);
 
   const [engine, setEngine] = useState<GameEngine | null>(null);
-  const [opponentEngine, setOpponentEngine] = useState<GameEngine | null>(null);
 
   // Initialize engines once match data (seed) arrives from the server
   useEffect(() => {
     if (matchStarted) {
       const eng1 = new GameEngine(matchStarted.seed.toString());
-      const eng2 = new GameEngine(matchStarted.seed.toString());
       engineRef.current = eng1;
-      opponentEngineRef.current = eng2;
       setEngine(eng1);
-      setOpponentEngine(eng2);
       setGameState(eng1.getState());
-      setOpponentGameState(eng2.getState());
       setPhase("FIGHT");
     }
   }, [matchStarted]);
@@ -98,13 +92,9 @@ export default function BattleScreen() {
   useEffect(() => {
     if (matchStarted) {
       const eng1 = new GameEngine(matchStarted.seed.toString());
-      const eng2 = new GameEngine(matchStarted.seed.toString());
       engineRef.current = eng1;
-      opponentEngineRef.current = eng2;
       setEngine(eng1);
-      setOpponentEngine(eng2);
       setGameState(eng1.getState());
-      setOpponentGameState(eng2.getState());
 
       // Reset match result in case this is a subsequent match
       setMatchResult(null);
@@ -127,17 +117,15 @@ export default function BattleScreen() {
 
   const matchResultRef = useRef<"WIN" | "LOSS" | "OPPONENT_LEFT" | null>(null);
 
-  // 3. Main Game Loop Tick (Now handles draining the opponent action queue)
+  // 3. Main Game Loop Tick
   useEffect(() => {
-    if (phase !== "FIGHT" || !engine || !opponentEngine) return;
+    if (phase !== "FIGHT" || !engine) return;
     let lastTime = Date.now();
 
     const interval = setInterval(() => {
-      // --- DRAIN NETWORK QUEUE FIRST ---
-      // This guarantees we process every rotate and drop before ticking the engine
+      // --- DRAIN NETWORK QUEUE ---
       const pendingActions = consumeOpponentActions();
       for (const action of pendingActions) {
-        // Catch both GAME_OVER and PLAYER_LEFT
         if (action.type === "GAME_OVER" || action.type === "PLAYER_LEFT") {
           if (action.type === "PLAYER_LEFT") {
             setMatchResult("OPPONENT_LEFT");
@@ -149,50 +137,26 @@ export default function BattleScreen() {
           return;
         }
 
-        switch (action.type) {
-          case "MOVE":
-            if (action.payload?.direction === "LEFT")
-              opponentEngine.queueInput("MOVE_LEFT");
-            if (action.payload?.direction === "RIGHT")
-              opponentEngine.queueInput("MOVE_RIGHT");
-            break;
-          case "ROTATE":
-            opponentEngine.queueInput("ROTATE_CW");
-            break;
-          case "DROP":
-            if (action.payload?.type === 'SOFT') {
-                opponentEngine.queueInput("SOFT_DROP");
-            } else {
-                opponentEngine.queueInput("HARD_DROP");
-            }
-            break;
-          case "SEND_GARBAGE":
+        if (action.type === "STATE_SYNC") {
+            setOpponentGameState(action.payload);
+        } else if (action.type === "SEND_GARBAGE") {
             engine.queueGarbage(action.payload.lines);
             engine.processGarbageQueue(0);
             triggerState(setP1State, "damage");
-            break;
         }
       }
 
-      // --- ENGINE TICKS ---
+      // --- ENGINE TICK ---
       const currentState = engine.getState();
-      const currentOpponentState = opponentEngine.getState();
 
-      if (
-        currentState.status === "GAME_OVER" ||
-        currentOpponentState.status === "GAME_OVER"
-      ) {
+      if (currentState.status === "GAME_OVER") {
         clearInterval(interval);
-
-        // Let the server know we died so it can relay to the opponent
-        if (currentState.status === "GAME_OVER" && !matchResultRef.current) {
+        if (!matchResultRef.current) {
           sendGameAction({ type: "GAME_OVER" });
           matchResultRef.current = "LOSS";
         }
-
         setGameState({ ...currentState });
-        setOpponentGameState({ ...currentOpponentState });
-        setMatchResult(currentState.status === "GAME_OVER" ? "LOSS" : "WIN");
+        setMatchResult("LOSS");
         return;
       }
 
@@ -216,15 +180,14 @@ export default function BattleScreen() {
         triggerState(setP2State, "damage");
       }
 
-      opponentEngine.tick(deltaMs);
-      setOpponentGameState({ ...opponentEngine.getState() });
-    }, 50);
+      // --- BROADCAST STATE ---
+      sendGameAction({ type: "STATE_SYNC", payload: engine.getSnapshot() });
+    }, 500);
 
     return () => clearInterval(interval);
   }, [
     phase,
     engine,
-    opponentEngine,
     consumeOpponentActions,
     sendGameAction,
   ]);
