@@ -108,6 +108,7 @@ export default function BattleScreen() {
 
       // Reset match result in case this is a subsequent match
       setMatchResult(null);
+      matchResultRef.current = null;
 
       const sequence = async () => {
         setPhase("READY");
@@ -124,6 +125,8 @@ export default function BattleScreen() {
     }
   }, [matchStarted]);
 
+  const matchResultRef = useRef<"WIN" | "LOSS" | "OPPONENT_LEFT" | null>(null);
+
   // 3. Main Game Loop Tick (Now handles draining the opponent action queue)
   useEffect(() => {
     if (phase !== "FIGHT" || !engine || !opponentEngine) return;
@@ -138,8 +141,10 @@ export default function BattleScreen() {
         if (action.type === "GAME_OVER" || action.type === "PLAYER_LEFT") {
           if (action.type === "PLAYER_LEFT") {
             setMatchResult("OPPONENT_LEFT");
+            matchResultRef.current = "OPPONENT_LEFT";
           } else {
             setMatchResult("WIN");
+            matchResultRef.current = "WIN";
           }
           return;
         }
@@ -155,7 +160,11 @@ export default function BattleScreen() {
             opponentEngine.queueInput("ROTATE_CW");
             break;
           case "DROP":
-            opponentEngine.queueInput("HARD_DROP");
+            if (action.payload?.type === 'SOFT') {
+                opponentEngine.queueInput("SOFT_DROP");
+            } else {
+                opponentEngine.queueInput("HARD_DROP");
+            }
             break;
           case "SEND_GARBAGE":
             engine.queueGarbage(action.payload.lines);
@@ -176,8 +185,9 @@ export default function BattleScreen() {
         clearInterval(interval);
 
         // Let the server know we died so it can relay to the opponent
-        if (currentState.status === "GAME_OVER" && !matchResult) {
+        if (currentState.status === "GAME_OVER" && !matchResultRef.current) {
           sendGameAction({ type: "GAME_OVER" });
+          matchResultRef.current = "LOSS";
         }
 
         setGameState({ ...currentState });
@@ -216,7 +226,6 @@ export default function BattleScreen() {
     engine,
     opponentEngine,
     consumeOpponentActions,
-    matchResult,
     sendGameAction,
   ]);
 
@@ -226,6 +235,7 @@ export default function BattleScreen() {
 
     // 2. Reset UI state immediately
     setMatchResult(null);
+    matchResultRef.current = null;
     setPhase("MATCHMAKING");
     engineRef.current = null;
     opponentEngineRef.current = null;

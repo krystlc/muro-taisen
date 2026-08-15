@@ -44,7 +44,7 @@ export function useTouchGestures(
             gestureState.dx = 0; // Reset for continuous movement
           } else if (dy > DRAG_THRESHOLD) {
             engineRef.current?.queueInput("SOFT_DROP");
-            // SOFT_DROP could be considered a MOVE or separate
+            onAction?.({ type: "DROP", payload: { type: "SOFT" } });
             gestureState.dy = 0;
           }
         }
@@ -62,7 +62,7 @@ export function useTouchGestures(
           onAction?.({ type: "ROTATE" });
         } else if (dy > 80) {
           engineRef.current?.queueInput("HARD_DROP");
-          onAction?.({ type: "DROP" });
+          onAction?.({ type: "DROP", payload: { type: "HARD" } });
         }
       },
     }),

@@ -7,7 +7,7 @@ export type GameAction = {
   payload?: any;
 };
 
-const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8000";
+const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8080";
 const serverHost = new URL(HOSTNAME).host;
 
 export function useGameServer() {
@@ -76,7 +76,11 @@ export function useGameServer() {
           setOnlinePlayerCount(message.onlinePlayers);
           break;
         case "QUEUE_STATUS":
-          setQueueStatus(message.status);
+          if (message.status === "Searching for opponent...") {
+            setQueueStatus("WAITING");
+          } else {
+            setQueueStatus(message.status);
+          }
           break;
         case "START_MATCH":
           setMatchStarted({ seed: message.seed, players: message.players });

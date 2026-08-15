@@ -22,6 +22,7 @@ export function useKeyboardInput(
           break;
         case "ArrowDown":
           engineRef.current?.queueInput("SOFT_DROP");
+          onAction?.({ type: "DROP", payload: { type: "SOFT" } });
           break;
         case "ArrowUp":
           engineRef.current?.queueInput("ROTATE_CW");
