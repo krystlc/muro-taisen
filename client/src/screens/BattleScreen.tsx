@@ -39,10 +39,13 @@ export default function BattleScreen() {
 
   const [engine, setEngine] = useState<GameEngine | null>(null);
 
-  // Initialize engines once match data (seed) arrives from the server
+  // Initialize engines once match data (seed) arrives from the server (or immediately if offline)
   useEffect(() => {
-    if (matchStarted) {
-      const eng1 = new GameEngine(matchStarted.seed.toString());
+    // If online match data exists, use it. Otherwise, assume offline and generate a random seed.
+    const seed = matchStarted ? matchStarted.seed.toString() : Date.now().toString();
+    
+    if (!engineRef.current) {
+      const eng1 = new GameEngine(seed);
       engineRef.current = eng1;
       setEngine(eng1);
       setGameState(eng1.getState());
@@ -63,12 +66,12 @@ export default function BattleScreen() {
 
   const lastScoreRef = useRef(0);
 
-  // 1. Auto-trigger quick match on mount
+  // 1. Auto-trigger quick match on mount if not already playing
   useEffect(() => {
-    if (!matchStarted) {
+    if (!matchStarted && phase === "MATCHMAKING") {
       quickMatch();
     }
-  }, [matchStarted, quickMatch]);
+  }, [matchStarted, quickMatch, phase]);
 
   // 2. Initialize engines and trigger countdown when a match is found
   useEffect(() => {
@@ -192,18 +195,23 @@ export default function BattleScreen() {
   }, [phase, engine, matchResult, consumeOpponentActions, sendGameAction]);
 
   const handleFindNewMatch = () => {
-    // 1. Tell context to clear the stale match data
-    clearMatch();
+    // 1. If we are in an online match, clear and search for a new one
+    if (matchStarted) {
+        clearMatch();
+        setPhase("MATCHMAKING");
+        quickMatch();
+    } else {
+        // 2. If we are offline, just restart the engine with a new random seed
+        engineRef.current = new GameEngine(Date.now().toString());
+        setEngine(engineRef.current);
+        setGameState(engineRef.current.getState());
+        setPhase("FIGHT");
+    }
 
-    // 2. Reset UI state immediately
+    // 3. Reset UI state
     setMatchResult(null);
     matchResultRef.current = null;
-    setPhase("MATCHMAKING");
-    engineRef.current = null;
-    setEngine(null);
-
-    // 3. Ask server for a new opponent
-    quickMatch();
+    setOpponentGameState(null);
   };
 
   if (!gameState) {
