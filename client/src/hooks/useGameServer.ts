@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // 1. ADD 'GAME_OVER' and 'PLAYER_LEFT' to the valid action types
 export type GameAction = {
@@ -78,8 +79,9 @@ export function useGameServer() {
 
     const ws = new WebSocket(config.websocket);
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "AUTH", token }));
+    ws.onopen = async () => {
+      const username = await AsyncStorage.getItem("username");
+      ws.send(JSON.stringify({ type: "AUTH", token, username }));
     };
 
     ws.onmessage = (event) => {

@@ -13,9 +13,10 @@ import (
 
 // Message contract matching your frontend protocol
 type IncomingMessage struct {
-	Type   string          `json:"type"`
-	Token  string          `json:"token,omitempty"`
-	Action json.RawMessage `json:"action,omitempty"`
+	Type     string          `json:"type"`
+	Token    string          `json:"token,omitempty"`
+	Username string          `json:"username,omitempty"`
+	Action   json.RawMessage `json:"action,omitempty"`
 }
 
 type OutgoingMessage struct {
@@ -152,8 +153,12 @@ func handleWebSocketUpgrade(w http.ResponseWriter, r *http.Request) {
 	_ = conn.SetReadDeadline(time.Time{}) // Reset read deadline after successful auth
 
 	// Successfully authenticated
-	// Generate a unique user ID/name based on timestamp/randomness
-	client.username = "guest_" + time.Now().Format("150405.999")
+	// Use provided username if available, otherwise generate a unique guest name
+	if authReq.Username != "" {
+		client.username = authReq.Username
+	} else {
+		client.username = "guest_" + time.Now().Format("150405.999")
+	}
 
 	// Step B: Confirm Authentication Success
 	hub.register <- client
