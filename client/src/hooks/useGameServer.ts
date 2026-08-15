@@ -20,17 +20,11 @@ export type GameAction = {
 };
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080";
-const serverHost = new URL(API_URL).host;
-const config =
-  process.env.NODE_ENV === "production"
-    ? {
-        auth: `http://${serverHost}/api/auth/guest`,
-        websocket: `ws://${serverHost}/ws`,
-      }
-    : {
-        auth: `https://${serverHost}/api/auth/guest`,
-        websocket: `wss://${serverHost}/ws`,
-      };
+const isTls = API_URL.startsWith("https://");
+const config = {
+  auth: `${API_URL}/api/auth/guest`,
+  websocket: `${isTls ? "wss" : "ws"}://${API_URL.slice(API_URL.indexOf("//"))}/ws`,
+};
 
 export function useGameServer() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
