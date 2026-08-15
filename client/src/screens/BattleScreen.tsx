@@ -4,8 +4,9 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { GameButton, VersusBar } from "../components/game-ui";
 import { FighterRenderer } from "../components/game-ui/FighterRenderer";
-import { BOARD_COLS, BOARD_ROWS } from "../core/engine/Board";
+import { BOARD_COLS, BOARD_ROWS, Board } from "../core/engine/Board";
 import { GameEngine, GameState } from "../core/engine/GameEngine";
+
 import { useGameStore } from "../store/useGameStore";
 import { InputController } from "../input/InputController";
 import { useGameServerContext } from "../contexts/GameServerContext";
@@ -313,28 +314,28 @@ export default function BattleScreen() {
           {(gameState.status === "GAME_OVER" ||
             opponentGameState?.status === "GAME_OVER" ||
             matchResult) && (
-            <View style={styles.gameOverOverlay}>
-              <Text
-                style={[
-                  styles.gameOverText,
-                  matchResult === "WIN" ? styles.winText : styles.lossText,
-                ]}
-              >
-                {matchResult === "WIN"
-                  ? "VICTORY!"
-                  : matchResult === "OPPONENT_LEFT"
-                    ? "OPPONENT FLED!"
-                    : "K.O. / DEFEAT"}
-              </Text>
-              <View style={styles.buttonRow}>
-                <GameButton
-                  label="Find New Match"
-                  onPress={handleFindNewMatch}
-                  variant="primary"
-                />
+              <View style={styles.gameOverOverlay}>
+                <Text
+                  style={[
+                    styles.gameOverText,
+                    matchResult === "WIN" ? styles.winText : styles.lossText,
+                  ]}
+                >
+                  {matchResult === "WIN"
+                    ? "VICTORY!"
+                    : matchResult === "OPPONENT_LEFT"
+                      ? "OPPONENT FLED!"
+                      : "K.O. / DEFEAT"}
+                </Text>
+                <View style={styles.buttonRow}>
+                  <GameButton
+                    label="Find New Match"
+                    onPress={handleFindNewMatch}
+                    variant="primary"
+                  />
+                </View>
               </View>
-            </View>
-          )}
+            )}
         </View>
       </InputController>
     </View>
