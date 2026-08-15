@@ -196,9 +196,7 @@ export default function BattleScreen() {
     matchResultRef.current = null;
     setPhase("MATCHMAKING");
     engineRef.current = null;
-    opponentEngineRef.current = null;
     setEngine(null);
-    setOpponentEngine(null);
 
     // 3. Ask server for a new opponent
     quickMatch();
