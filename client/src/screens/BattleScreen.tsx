@@ -127,11 +127,13 @@ export default function BattleScreen() {
     lastTimeRef.current = Date.now();
 
     const loop = () => {
+      // 1. Drain network actions
       const pendingActions = consumeOpponentActions();
       for (const action of pendingActions) {
         if (action.type === 'GAME_OVER' || action.type === 'PLAYER_LEFT') {
           setMatchResult(action.type === 'PLAYER_LEFT' ? 'OPPONENT_LEFT' : 'WIN');
           matchResultRef.current = action.type === 'PLAYER_LEFT' ? 'OPPONENT_LEFT' : 'WIN';
+          cancelAnimationFrame(requestRef.current!);
           return;
         }
         if (action.type === 'SEND_GARBAGE') {
@@ -143,11 +145,14 @@ export default function BattleScreen() {
         }
       }
 
+      // 2. Calculate time delta
       const now = Date.now();
       const deltaMs = now - lastTimeRef.current;
       lastTimeRef.current = now;
 
+      // 3. Tick physics
       engine.tick(deltaMs);
+      
       const newState = engine.getState();
       
       if (newState.status === 'GAME_OVER') {
@@ -157,11 +162,13 @@ export default function BattleScreen() {
         }
         setGameState({ ...newState });
         setMatchResult('LOSS');
-        return;
+        cancelAnimationFrame(requestRef.current!);
+        return; // Stop loop
       }
 
       setGameState({ ...newState });
 
+      // 4. Handle garbage output
       if (newState.score > lastScoreRef.current) {
         const scoreDiff = newState.score - lastScoreRef.current;
         const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
@@ -169,7 +176,10 @@ export default function BattleScreen() {
         lastScoreRef.current = newState.score;
       }
       
+      // 5. Broadcast state
       sendGameAction({ type: 'STATE_SYNC', payload: engine.getSnapshot() });
+
+      // 6. Schedule next frame
       requestRef.current = requestAnimationFrame(loop);
     };
 
