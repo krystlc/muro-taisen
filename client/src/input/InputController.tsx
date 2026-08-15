@@ -21,17 +21,25 @@ export function InputController({
   // Hook up web listeners if running on web
   useKeyboardInput(engineRef, Platform.OS === "web" && enabled, onAction);
 
-  // Get touch pan responders for mobile
+  // Enable touch gestures on non-web, or if on web and touch is supported
+  const isWeb = Platform.OS === "web";
+  const touchSupported =
+    isWeb &&
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
   const panResponder = useTouchGestures(
     engineRef,
-    Platform.OS !== "web" && enabled,
+    (Platform.OS !== "web" || touchSupported) && enabled,
     onAction,
   );
 
   return (
     <View
       style={styles.container}
-      {...(Platform.OS !== "web" ? panResponder.panHandlers : {})}
+      {...(Platform.OS !== "web" || touchSupported
+        ? panResponder.panHandlers
+        : {})}
     >
       {children}
     </View>

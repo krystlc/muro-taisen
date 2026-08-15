@@ -81,6 +81,7 @@ export default function BattleScreen() {
       // Reset match result in case this is a subsequent match
       setMatchResult(null);
       matchResultRef.current = null;
+      setOpponentGameState(null); // Clear stale opponent state
 
       const sequence = async () => {
         setPhase("READY");
@@ -129,7 +130,10 @@ export default function BattleScreen() {
           engine.processGarbageQueue(0);
         }
         if (action.type === "STATE_SYNC") {
-          setOpponentGameState(action.payload);
+          // Ignore syncs if not in FIGHT phase (prevents processing stale packets from previous match)
+          if (phase === "FIGHT") {
+            setOpponentGameState(action.payload);
+          }
         }
       }
 
@@ -314,28 +318,28 @@ export default function BattleScreen() {
           {(gameState.status === "GAME_OVER" ||
             opponentGameState?.status === "GAME_OVER" ||
             matchResult) && (
-              <View style={styles.gameOverOverlay}>
-                <Text
-                  style={[
-                    styles.gameOverText,
-                    matchResult === "WIN" ? styles.winText : styles.lossText,
-                  ]}
-                >
-                  {matchResult === "WIN"
-                    ? "VICTORY!"
-                    : matchResult === "OPPONENT_LEFT"
-                      ? "OPPONENT FLED!"
-                      : "K.O. / DEFEAT"}
-                </Text>
-                <View style={styles.buttonRow}>
-                  <GameButton
-                    label="Find New Match"
-                    onPress={handleFindNewMatch}
-                    variant="primary"
-                  />
-                </View>
+            <View style={styles.gameOverOverlay}>
+              <Text
+                style={[
+                  styles.gameOverText,
+                  matchResult === "WIN" ? styles.winText : styles.lossText,
+                ]}
+              >
+                {matchResult === "WIN"
+                  ? "VICTORY!"
+                  : matchResult === "OPPONENT_LEFT"
+                    ? "OPPONENT FLED!"
+                    : "K.O. / DEFEAT"}
+              </Text>
+              <View style={styles.buttonRow}>
+                <GameButton
+                  label="Find New Match"
+                  onPress={handleFindNewMatch}
+                  variant="primary"
+                />
               </View>
-            )}
+            </View>
+          )}
         </View>
       </InputController>
     </View>
