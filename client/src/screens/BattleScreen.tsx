@@ -20,23 +20,6 @@ export default function BattleScreen() {
   const player1 = useGameStore((state) => state.player1);
   const player2 = useGameStore((state) => state.player2);
 
-  const [p1State, setP1State] = useState<"neutral" | "attack" | "damage">(
-    "neutral",
-  );
-  const [p2State, setP2State] = useState<"neutral" | "attack" | "damage">(
-    "neutral",
-  );
-
-  const triggerState = (
-    setter: React.Dispatch<
-      React.SetStateAction<"neutral" | "attack" | "damage">
-    >,
-    state: "attack" | "damage",
-  ) => {
-    setter(state);
-    setTimeout(() => setter("neutral"), 500);
-  };
-
   // Hook into the websocket server connection
   const {
     sendGameAction,
@@ -137,6 +120,7 @@ export default function BattleScreen() {
           matchResultRef.current =
             action.type === "PLAYER_LEFT" ? "OPPONENT_LEFT" : "WIN";
           cancelAnimationFrame(requestRef.current!);
+          requestRef.current = null;
           return;
         }
         if (action.type === "SEND_GARBAGE") {
@@ -166,6 +150,7 @@ export default function BattleScreen() {
         setGameState({ ...newState });
         setMatchResult("LOSS");
         cancelAnimationFrame(requestRef.current!);
+        requestRef.current = null;
         return; // Stop loop
       }
 
@@ -192,7 +177,13 @@ export default function BattleScreen() {
     };
 
     requestRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(requestRef.current!);
+    // Cleanup
+    return () => {
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+    };
   }, [phase, engine, matchResult, consumeOpponentActions, sendGameAction]);
 
   const handleFindNewMatch = () => {
@@ -210,16 +201,8 @@ export default function BattleScreen() {
     quickMatch();
   };
 
-  if (!gameState || !opponentGameState) {
+  if (!gameState) {
     return <View style={styles.container} />;
-  }
-
-  // Hook into local input actions to broadcast them to the server
-  // (Pass a wrapper around your engine actions into InputController or call sendGameAction on moves)
-
-  // Build Human Composite View Grid
-  if (!gameState || !opponentGameState) {
-    return <View style={styles.container} />; // Or a loading screen
   }
 
   const displayGrid = gameState.grid.map((row) => [...row]);
@@ -249,8 +232,9 @@ export default function BattleScreen() {
   }
 
   // Build Opponent Composite View Grid
-  const displayOpponentGrid = opponentGameState.grid.map((row) => [...row]);
-  const opActivePiece = opponentGameState.activePiece;
+  const displayOpponentGrid =
+    opponentGameState?.grid.map((row) => [...row]) || Board.createEmptyGrid();
+  const opActivePiece = opponentGameState?.activePiece;
   if (opActivePiece) {
     const [pivotRow, pivotCol] = [opActivePiece.row, opActivePiece.column];
     const offsets: Record<number, [number, number]> = {
@@ -280,8 +264,8 @@ export default function BattleScreen() {
       <StatusBar style="light" />
 
       <View style={styles.fighterArena}>
-        <FighterRenderer name={player1.name} state={p1State} />
-        <FighterRenderer name={opponentName} state={p2State} flipped={true} />
+        <FighterRenderer name={player1.name} state={"neutral"} />
+        <FighterRenderer name={opponentName} state={"neutral"} flipped={true} />
       </View>
 
       <View style={styles.hudBar}>
@@ -327,7 +311,7 @@ export default function BattleScreen() {
           )}
 
           {(gameState.status === "GAME_OVER" ||
-            opponentGameState.status === "GAME_OVER" ||
+            opponentGameState?.status === "GAME_OVER" ||
             matchResult) && (
             <View style={styles.gameOverOverlay}>
               <Text
