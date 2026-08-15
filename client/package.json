@@ -62,11 +62,5 @@
   "engines": {
     "node": "24.x"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@sentry/cli",
-      "unrs-resolver"
-    ]
-  },
   "packageManager": "pnpm@11.22.0"
 }
