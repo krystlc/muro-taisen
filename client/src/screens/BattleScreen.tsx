@@ -118,79 +118,64 @@ export default function BattleScreen() {
   const matchResultRef = useRef<"WIN" | "LOSS" | "OPPONENT_LEFT" | null>(null);
 
   // 3. Main Game Loop Tick
-  useEffect(() => {
-    if (phase !== "FIGHT" || !engine) return;
-    let lastTime = Date.now();
+  const requestRef = useRef<number>();
+  const lastTimeRef = useRef<number>(Date.now());
 
-    const interval = setInterval(() => {
-      // --- DRAIN NETWORK QUEUE ---
+  useEffect(() => {
+    if (phase !== 'FIGHT' || !engine) return;
+    
+    lastTimeRef.current = Date.now();
+
+    const loop = () => {
       const pendingActions = consumeOpponentActions();
       for (const action of pendingActions) {
-        if (action.type === "GAME_OVER" || action.type === "PLAYER_LEFT") {
-          if (action.type === "PLAYER_LEFT") {
-            setMatchResult("OPPONENT_LEFT");
-            matchResultRef.current = "OPPONENT_LEFT";
-          } else {
-            setMatchResult("WIN");
-            matchResultRef.current = "WIN";
-          }
+        if (action.type === 'GAME_OVER' || action.type === 'PLAYER_LEFT') {
+          setMatchResult(action.type === 'PLAYER_LEFT' ? 'OPPONENT_LEFT' : 'WIN');
+          matchResultRef.current = action.type === 'PLAYER_LEFT' ? 'OPPONENT_LEFT' : 'WIN';
           return;
         }
-
-        if (action.type === "STATE_SYNC") {
-            setOpponentGameState(action.payload);
-        } else if (action.type === "SEND_GARBAGE") {
-            engine.queueGarbage(action.payload.lines);
-            engine.processGarbageQueue(0);
-            triggerState(setP1State, "damage");
+        if (action.type === 'SEND_GARBAGE') {
+          engine.queueGarbage(action.payload.lines);
+          engine.processGarbageQueue(0); 
         }
-      }
-
-      // --- ENGINE TICK ---
-      const currentState = engine.getState();
-
-      if (currentState.status === "GAME_OVER") {
-        clearInterval(interval);
-        if (!matchResultRef.current) {
-          sendGameAction({ type: "GAME_OVER" });
-          matchResultRef.current = "LOSS";
+        if (action.type === 'STATE_SYNC') {
+          setOpponentGameState(action.payload);
         }
-        setGameState({ ...currentState });
-        setMatchResult("LOSS");
-        return;
       }
 
       const now = Date.now();
-      const deltaMs = now - lastTime;
-      lastTime = now;
+      const deltaMs = now - lastTimeRef.current;
+      lastTimeRef.current = now;
 
       engine.tick(deltaMs);
       const newState = engine.getState();
+      
+      if (newState.status === 'GAME_OVER') {
+        if (!matchResultRef.current) {
+            sendGameAction({ type: 'GAME_OVER' });
+            matchResultRef.current = 'LOSS';
+        }
+        setGameState({ ...newState });
+        setMatchResult('LOSS');
+        return;
+      }
+
       setGameState({ ...newState });
 
       if (newState.score > lastScoreRef.current) {
         const scoreDiff = newState.score - lastScoreRef.current;
         const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
-        sendGameAction({
-          type: "SEND_GARBAGE",
-          payload: { lines: garbageLines },
-        });
+        sendGameAction({ type: 'SEND_GARBAGE', payload: { lines: garbageLines } });
         lastScoreRef.current = newState.score;
-        triggerState(setP1State, "attack");
-        triggerState(setP2State, "damage");
       }
+      
+      sendGameAction({ type: 'STATE_SYNC', payload: engine.getSnapshot() });
+      requestRef.current = requestAnimationFrame(loop);
+    };
 
-      // --- BROADCAST STATE ---
-      sendGameAction({ type: "STATE_SYNC", payload: engine.getSnapshot() });
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [
-    phase,
-    engine,
-    consumeOpponentActions,
-    sendGameAction,
-  ]);
+    requestRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(requestRef.current!);
+  }, [phase, engine, matchResult, consumeOpponentActions, sendGameAction]);
 
   const handleFindNewMatch = () => {
     // 1. Tell context to clear the stale match data
@@ -291,9 +276,23 @@ export default function BattleScreen() {
         engineRef={engineRef}
         enabled={phase === "FIGHT"}
         onAction={(action) => {
-          if (matchStarted) {
-            sendGameAction(action);
-          }
+          if (!engine) return;
+
+          // 1. Instantly process the move in the engine
+          if (action.type === 'MOVE_LEFT') engine.moveLeft();
+          if (action.type === 'MOVE_RIGHT') engine.moveRight();
+          if (action.type === 'ROTATE_CW') engine.rotateCW();
+          if (action.type === 'HARD_DROP') engine.hardDropPiece();
+          
+          // Fallback for types not handled by direct methods
+          if (action.type === 'ROTATE_CCW') engine.queueInput('ROTATE_CCW');
+          if (action.type === 'SOFT_DROP') engine.queueInput('SOFT_DROP');
+
+          // 2. Instantly update the UI state
+          setGameState({ ...engine.getState() });
+
+          // 3. Send to network
+          sendGameAction(action);
         }}
       >
         <View style={styles.puzzleArea}>

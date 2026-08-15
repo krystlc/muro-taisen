@@ -355,6 +355,11 @@ export class GameEngine {
     this.processGarbageQueue(0);
   }
 
+  public moveLeft() { this.tryMove(-1); }
+  public moveRight() { this.tryMove(1); }
+  public rotateCW() { this.tryRotate(90); }
+  public hardDropPiece() { this.hardDrop(); }
+
   public applyMove(move: { column: number; rotation: number }): void {
     const piece = this.state.activePiece;
     if (!piece) return;

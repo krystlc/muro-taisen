@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { memo } from "react";
 import { GemCell } from "./GemCell";
 import { BOARD_ROWS } from "../../core/engine/Board";
 import { ActivePiece } from "../../core/engine/GameEngine";
@@ -22,7 +23,7 @@ export function NextPiecePanel({ nextPiece }: { nextPiece: ActivePiece }) {
 }
 
 // --- CENTER COLUMN: MAIN BOARD ---
-export function MainBoard({ displayGrid }: { displayGrid: any[][] }) {
+export const MainBoard = memo(({ displayGrid }: { displayGrid: any[][] }) => {
   return (
     <View style={styles.mainBoardContainer}>
       {/* The grid lines mimicking the screenshot */}
@@ -47,10 +48,10 @@ export function MainBoard({ displayGrid }: { displayGrid: any[][] }) {
         })}
     </View>
   );
-}
+}, (prevProps, nextProps) => prevProps.displayGrid === nextProps.displayGrid);
 
 // --- RIGHT COLUMN: MINI BOARD ---
-export function OpponentMiniBoard({ opponentGrid }: { opponentGrid: any[][] }) {
+export const OpponentMiniBoard = memo(({ opponentGrid }: { opponentGrid: any[][] }) => {
   return (
     <View style={styles.sidePanel}>
       {/* Assuming the "1" in the screenshot is a level/multiplier */}
@@ -75,7 +76,7 @@ export function OpponentMiniBoard({ opponentGrid }: { opponentGrid: any[][] }) {
       </View>
     </View>
   );
-}
+}, (prevProps, nextProps) => prevProps.opponentGrid === nextProps.opponentGrid);
 
 const styles = StyleSheet.create({
   sidePanel: {
