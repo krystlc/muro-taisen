@@ -355,10 +355,18 @@ export class GameEngine {
     this.processGarbageQueue(0);
   }
 
-  public moveLeft() { this.tryMove(-1); }
-  public moveRight() { this.tryMove(1); }
-  public rotateCW() { this.tryRotate(90); }
-  public hardDropPiece() { this.hardDrop(); }
+  public moveLeft() {
+    this.tryMove(-1);
+  }
+  public moveRight() {
+    this.tryMove(1);
+  }
+  public rotateCW() {
+    this.tryRotate(90);
+  }
+  public hardDropPiece() {
+    this.hardDrop();
+  }
 
   public applyMove(move: { column: number; rotation: number }): void {
     const piece = this.state.activePiece;
@@ -465,7 +473,12 @@ export class GameEngine {
   /**
    * Returns a serializable snapshot of the board and active piece for synchronization.
    */
-  public getSnapshot(): { grid: BoardGrid; activePiece: ActivePiece | null; score: number; status: GameStatus } {
+  public getSnapshot(): {
+    grid: BoardGrid;
+    activePiece: ActivePiece | null;
+    score: number;
+    status: GameStatus;
+  } {
     return {
       grid: this.state.grid,
       activePiece: this.state.activePiece,

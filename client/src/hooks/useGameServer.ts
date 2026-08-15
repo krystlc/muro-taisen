@@ -3,11 +3,23 @@ import { useEffect, useState, useCallback, useRef } from "react";
 // 1. ADD 'GAME_OVER' and 'PLAYER_LEFT' to the valid action types
 export type GameAction = {
   type:
-    "DROP" | "ROTATE" | "SEND_GARBAGE" | "MOVE" | "GAME_OVER" | "PLAYER_LEFT";
+    | "DROP"
+    | "ROTATE"
+    | "SEND_GARBAGE"
+    | "MOVE"
+    | "GAME_OVER"
+    | "PLAYER_LEFT"
+    | "STATE_SYNC"
+    | "MOVE_LEFT"
+    | "MOVE_RIGHT"
+    | "ROTATE_CW"
+    | "ROTATE_CCW"
+    | "HARD_DROP"
+    | "SOFT_DROP";
   payload?: any;
 };
 
-const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.184:8080";
+const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.156:8080";
 const serverHost = new URL(HOSTNAME).host;
 
 export function useGameServer() {

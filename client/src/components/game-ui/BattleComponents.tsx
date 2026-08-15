@@ -23,60 +23,68 @@ export function NextPiecePanel({ nextPiece }: { nextPiece: ActivePiece }) {
 }
 
 // --- CENTER COLUMN: MAIN BOARD ---
-export const MainBoard = memo(({ displayGrid }: { displayGrid: any[][] }) => {
-  return (
-    <View style={styles.mainBoardContainer}>
-      {/* The grid lines mimicking the screenshot */}
-      <View style={styles.gridOverlay} />
+export const MainBoard = memo(
+  ({ displayGrid }: { displayGrid: any[][] }) => {
+    return (
+      <View style={styles.mainBoardContainer}>
+        {/* The grid lines mimicking the screenshot */}
+        <View style={styles.gridOverlay} />
 
-      {displayGrid
-        .slice()
-        .reverse()
-        .map((row, rIndex) => {
-          const actualRowIndex = BOARD_ROWS - 1 - rIndex;
-          return (
-            <View key={`row-${actualRowIndex}`} style={styles.row}>
-              {row.map((gem, cIndex) => (
-                <GemCell
-                  key={`cell-${actualRowIndex}-${cIndex}`}
-                  gem={gem}
-                  size={32}
-                />
-              ))}
-            </View>
-          );
-        })}
-    </View>
-  );
-}, (prevProps, nextProps) => prevProps.displayGrid === nextProps.displayGrid);
-
-// --- RIGHT COLUMN: MINI BOARD ---
-export const OpponentMiniBoard = memo(({ opponentGrid }: { opponentGrid: any[][] }) => {
-  return (
-    <View style={styles.sidePanel}>
-      {/* Assuming the "1" in the screenshot is a level/multiplier */}
-      <View style={styles.levelBox}>
-        <Text style={styles.levelText}>1</Text>
-      </View>
-      <View style={styles.miniBoardContainer}>
-        {opponentGrid
+        {displayGrid
           .slice()
           .reverse()
-          .map((row, rIndex) => (
-            <View key={`mini-row-${rIndex}`} style={styles.row}>
-              {row.map((gem, cIndex) => (
-                <GemCell
-                  key={`mini-cell-${rIndex}-${cIndex}`}
-                  gem={gem}
-                  size={12}
-                />
-              ))}
-            </View>
-          ))}
+          .map((row, rIndex) => {
+            const actualRowIndex = BOARD_ROWS - 1 - rIndex;
+            return (
+              <View key={`row-${actualRowIndex}`} style={styles.row}>
+                {row.map((gem, cIndex) => (
+                  <GemCell
+                    key={`cell-${actualRowIndex}-${cIndex}`}
+                    gem={gem}
+                    size={32}
+                  />
+                ))}
+              </View>
+            );
+          })}
       </View>
-    </View>
-  );
-}, (prevProps, nextProps) => prevProps.opponentGrid === nextProps.opponentGrid);
+    );
+  },
+  (prevProps, nextProps) => prevProps.displayGrid === nextProps.displayGrid,
+);
+MainBoard.displayName = "MainBoard";
+
+// --- RIGHT COLUMN: MINI BOARD ---
+export const OpponentMiniBoard = memo(
+  ({ opponentGrid }: { opponentGrid: any[][] }) => {
+    return (
+      <View style={styles.sidePanel}>
+        {/* Assuming the "1" in the screenshot is a level/multiplier */}
+        <View style={styles.levelBox}>
+          <Text style={styles.levelText}>1</Text>
+        </View>
+        <View style={styles.miniBoardContainer}>
+          {opponentGrid
+            .slice()
+            .reverse()
+            .map((row, rIndex) => (
+              <View key={`mini-row-${rIndex}`} style={styles.row}>
+                {row.map((gem, cIndex) => (
+                  <GemCell
+                    key={`mini-cell-${rIndex}-${cIndex}`}
+                    gem={gem}
+                    size={12}
+                  />
+                ))}
+              </View>
+            ))}
+        </View>
+      </View>
+    );
+  },
+  (prevProps, nextProps) => prevProps.opponentGrid === nextProps.opponentGrid,
+);
+OpponentMiniBoard.displayName = "OpponentMiniBoard";
 
 const styles = StyleSheet.create({
   sidePanel: {

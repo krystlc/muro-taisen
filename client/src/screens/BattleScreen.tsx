@@ -37,8 +37,6 @@ export default function BattleScreen() {
     setTimeout(() => setter("neutral"), 500);
   };
 
-  // ... (rest of the component)
-
   // Hook into the websocket server connection
   const {
     sendGameAction,
@@ -118,29 +116,34 @@ export default function BattleScreen() {
   const matchResultRef = useRef<"WIN" | "LOSS" | "OPPONENT_LEFT" | null>(null);
 
   // 3. Main Game Loop Tick
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(Date.now());
+  const lastBroadcastRef = useRef<number>(Date.now());
 
   useEffect(() => {
-    if (phase !== 'FIGHT' || !engine) return;
-    
+    if (phase !== "FIGHT" || !engine) return;
+
     lastTimeRef.current = Date.now();
+    lastBroadcastRef.current = Date.now();
 
     const loop = () => {
       // 1. Drain network actions
       const pendingActions = consumeOpponentActions();
       for (const action of pendingActions) {
-        if (action.type === 'GAME_OVER' || action.type === 'PLAYER_LEFT') {
-          setMatchResult(action.type === 'PLAYER_LEFT' ? 'OPPONENT_LEFT' : 'WIN');
-          matchResultRef.current = action.type === 'PLAYER_LEFT' ? 'OPPONENT_LEFT' : 'WIN';
+        if (action.type === "GAME_OVER" || action.type === "PLAYER_LEFT") {
+          setMatchResult(
+            action.type === "PLAYER_LEFT" ? "OPPONENT_LEFT" : "WIN",
+          );
+          matchResultRef.current =
+            action.type === "PLAYER_LEFT" ? "OPPONENT_LEFT" : "WIN";
           cancelAnimationFrame(requestRef.current!);
           return;
         }
-        if (action.type === 'SEND_GARBAGE') {
+        if (action.type === "SEND_GARBAGE") {
           engine.queueGarbage(action.payload.lines);
-          engine.processGarbageQueue(0); 
+          engine.processGarbageQueue(0);
         }
-        if (action.type === 'STATE_SYNC') {
+        if (action.type === "STATE_SYNC") {
           setOpponentGameState(action.payload);
         }
       }
@@ -152,16 +155,16 @@ export default function BattleScreen() {
 
       // 3. Tick physics
       engine.tick(deltaMs);
-      
+
       const newState = engine.getState();
-      
-      if (newState.status === 'GAME_OVER') {
+
+      if (newState.status === "GAME_OVER") {
         if (!matchResultRef.current) {
-            sendGameAction({ type: 'GAME_OVER' });
-            matchResultRef.current = 'LOSS';
+          sendGameAction({ type: "GAME_OVER" });
+          matchResultRef.current = "LOSS";
         }
         setGameState({ ...newState });
-        setMatchResult('LOSS');
+        setMatchResult("LOSS");
         cancelAnimationFrame(requestRef.current!);
         return; // Stop loop
       }
@@ -172,14 +175,19 @@ export default function BattleScreen() {
       if (newState.score > lastScoreRef.current) {
         const scoreDiff = newState.score - lastScoreRef.current;
         const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
-        sendGameAction({ type: 'SEND_GARBAGE', payload: { lines: garbageLines } });
+        sendGameAction({
+          type: "SEND_GARBAGE",
+          payload: { lines: garbageLines },
+        });
         lastScoreRef.current = newState.score;
       }
-      
-      // 5. Broadcast state
-      sendGameAction({ type: 'STATE_SYNC', payload: engine.getSnapshot() });
 
-      // 6. Schedule next frame
+      // 5. Throttled Broadcast (every 200ms)
+      if (now - lastBroadcastRef.current > 200) {
+        sendGameAction({ type: "STATE_SYNC", payload: engine.getSnapshot() });
+        lastBroadcastRef.current = now;
+      }
+
       requestRef.current = requestAnimationFrame(loop);
     };
 
@@ -287,14 +295,14 @@ export default function BattleScreen() {
           if (!engine) return;
 
           // 1. Instantly process the move in the engine
-          if (action.type === 'MOVE_LEFT') engine.moveLeft();
-          if (action.type === 'MOVE_RIGHT') engine.moveRight();
-          if (action.type === 'ROTATE_CW') engine.rotateCW();
-          if (action.type === 'HARD_DROP') engine.hardDropPiece();
-          
+          if (action.type === "MOVE_LEFT") engine.moveLeft();
+          if (action.type === "MOVE_RIGHT") engine.moveRight();
+          if (action.type === "ROTATE_CW") engine.rotateCW();
+          if (action.type === "HARD_DROP") engine.hardDropPiece();
+
           // Fallback for types not handled by direct methods
-          if (action.type === 'ROTATE_CCW') engine.queueInput('ROTATE_CCW');
-          if (action.type === 'SOFT_DROP') engine.queueInput('SOFT_DROP');
+          if (action.type === "ROTATE_CCW") engine.queueInput("ROTATE_CCW");
+          if (action.type === "SOFT_DROP") engine.queueInput("SOFT_DROP");
 
           // 2. Instantly update the UI state
           setGameState({ ...engine.getState() });
