@@ -19,8 +19,18 @@ export type GameAction = {
   payload?: any;
 };
 
-const HOSTNAME = process.env.HOSTNAME ?? "http://192.168.0.156:8080";
-const serverHost = new URL(HOSTNAME).host;
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080";
+const serverHost = new URL(API_URL).host;
+const config =
+  process.env.NODE_ENV === "production"
+    ? {
+        auth: `http://${serverHost}/api/auth/guest`,
+        websocket: `ws://${serverHost}/ws`,
+      }
+    : {
+        auth: `https://${serverHost}/api/auth/guest`,
+        websocket: `wss://${serverHost}/ws`,
+      };
 
 export function useGameServer() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -66,13 +76,13 @@ export function useGameServer() {
   }, [authenticated, socket]);
 
   const connect = useCallback(async () => {
-    const authRes = await fetch(`http://${serverHost}/api/auth/guest`, {
+    const authRes = await fetch(config.auth, {
       method: "POST",
     });
     const { userId, token } = await authRes.json();
     setUserId(userId);
 
-    const ws = new WebSocket(`ws://${serverHost}/ws`);
+    const ws = new WebSocket(config.websocket);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "AUTH", token }));
