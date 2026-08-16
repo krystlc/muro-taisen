@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { GameButton, VersusBar } from "../components/game-ui";
@@ -16,6 +16,7 @@ import {
   MainBoard,
   OpponentMiniBoard,
 } from "../components/game-ui/BattleComponents";
+import { useRouter } from "expo-router";
 
 export default function BattleScreen() {
   const player1 = useGameStore((state) => state.player1);
@@ -111,6 +112,27 @@ export default function BattleScreen() {
   const lastTimeRef = useRef<number>(Date.now());
   const lastBroadcastRef = useRef<number>(Date.now());
 
+  const router = useRouter();
+  const handleFindNewMatch = useCallback(() => {
+    // 1. If we are in an online match, clear and search for a new one
+    if (matchStarted) {
+      clearMatch();
+      setPhase("MATCHMAKING");
+      quickMatch();
+    } else {
+      // 2. If we are offline, just restart the engine with a new random seed
+      engineRef.current = new GameEngine(Date.now().toString());
+      setEngine(engineRef.current);
+      setGameState(engineRef.current.getState());
+      setPhase("FIGHT");
+    }
+
+    // 3. Reset UI state
+    setMatchResult(null);
+    matchResultRef.current = null;
+    setOpponentGameState(null);
+  }, [clearMatch, matchStarted, quickMatch]);
+
   useEffect(() => {
     if (phase !== "FIGHT" || !engine) return;
 
@@ -122,11 +144,18 @@ export default function BattleScreen() {
       const pendingActions = consumeOpponentActions();
       for (const action of pendingActions) {
         if (action.type === "GAME_OVER" || action.type === "PLAYER_LEFT") {
-          setMatchResult(
-            action.type === "PLAYER_LEFT" ? "OPPONENT_LEFT" : "WIN",
-          );
-          matchResultRef.current =
-            action.type === "PLAYER_LEFT" ? "OPPONENT_LEFT" : "WIN";
+          if (action.type === "PLAYER_LEFT") {
+            setMatchResult("OPPONENT_LEFT");
+            matchResultRef.current = "OPPONENT_LEFT";
+            // Force transition to start screen after short delay
+            setTimeout(() => {
+              handleFindNewMatch();
+              router.replace("/");
+            }, 3000);
+          } else {
+            setMatchResult("WIN");
+            matchResultRef.current = "WIN";
+          }
           cancelAnimationFrame(requestRef.current!);
           requestRef.current = null;
           return;
@@ -195,27 +224,15 @@ export default function BattleScreen() {
         requestRef.current = null;
       }
     };
-  }, [phase, engine, matchResult, consumeOpponentActions, sendGameAction]);
-
-  const handleFindNewMatch = () => {
-    // 1. If we are in an online match, clear and search for a new one
-    if (matchStarted) {
-      clearMatch();
-      setPhase("MATCHMAKING");
-      quickMatch();
-    } else {
-      // 2. If we are offline, just restart the engine with a new random seed
-      engineRef.current = new GameEngine(Date.now().toString());
-      setEngine(engineRef.current);
-      setGameState(engineRef.current.getState());
-      setPhase("FIGHT");
-    }
-
-    // 3. Reset UI state
-    setMatchResult(null);
-    matchResultRef.current = null;
-    setOpponentGameState(null);
-  };
+  }, [
+    phase,
+    engine,
+    matchResult,
+    consumeOpponentActions,
+    sendGameAction,
+    router,
+    handleFindNewMatch,
+  ]);
 
   if (!gameState) {
     return <View style={styles.container} />;
