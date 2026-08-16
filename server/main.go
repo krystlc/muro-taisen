@@ -27,6 +27,7 @@ type OutgoingMessage struct {
 	Players       []string    `json:"players,omitempty"`
 	Action        interface{} `json:"action,omitempty"`
 	Error         string      `json:"error,omitempty"`
+	Username      string      `json:"username,omitempty"`
 }
 
 // Client represents a single active websocket connection
@@ -91,23 +92,12 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 func main() {
 	go hub.run()
 
-	// Wrap endpoints with CORS middleware
-	http.HandleFunc("/api/auth/guest", enableCORS(handleGuestAuth))
+	// Wrap endpoints with CORS middleware (Single registration source of truth)
+	http.HandleFunc("/auth/guest", enableCORS(handleGuestAuth))
 	http.HandleFunc("/", enableCORS(handleWebSocketUpgrade))
 
 	log.Println("Go Game Server running on :8080...")
 	if err := http.ListenAndServe("0.0.0.0:8080", nil); err != nil {
-		log.Fatal("ListenAndServe error: ", err)
-	}
-
-	// 1. Guest Authentication Endpoint
-	http.HandleFunc("/api/auth/guest", handleGuestAuth)
-
-	// 2. WebSocket Connection Handler Route
-	http.HandleFunc("/", handleWebSocketUpgrade)
-
-	log.Println("Go Game Server running on :8080...")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal("ListenAndServe error: ", err)
 	}
 }
@@ -165,6 +155,7 @@ func handleWebSocketUpgrade(w http.ResponseWriter, r *http.Request) {
 	client.safeWrite(OutgoingMessage{
 		Type:          "AUTH_SUCCESS",
 		OnlinePlayers: hub.getOnlineCount(),
+		Username:      client.username,
 	})
 
 	// Spin up concurrent pumps for read/write handling
@@ -369,6 +360,16 @@ func (hub *GameHub) removeFromRoomLocked(target *Client) {
 	peers, exists := hub.rooms[target.roomID]
 	if !exists {
 		return
+	}
+
+	// Notify the peer that the target left
+	for _, p := range peers {
+		if p != target {
+			p.safeWrite(OutgoingMessage{
+				Type:   "OPPONENT_ACTION",
+				Action: json.RawMessage(`{"type":"PLAYER_LEFT"}`),
+			})
+		}
 	}
 
 	newPeers := []*Client{}

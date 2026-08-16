@@ -23,7 +23,7 @@ export type GameAction = {
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080";
 const isTls = API_URL.startsWith("https://");
 const config = {
-  auth: `${API_URL}/api/auth/guest`,
+  auth: `${API_URL}/auth/guest`,
   websocket: `${isTls ? "wss" : "ws"}://${API_URL.slice(API_URL.indexOf("//"))}/ws`,
 };
 
@@ -31,6 +31,7 @@ export function useGameServer() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [onlinePlayerCount, setOnlinePlayerCount] = useState(0);
 
   const actionQueue = useRef<any[]>([]);
@@ -89,6 +90,8 @@ export function useGameServer() {
       switch (message.type) {
         case "AUTH_SUCCESS":
           setAuthenticated(true);
+          console.log(message);
+          setUsername(message.username);
           break;
         case "GLOBAL_STATE":
           setOnlinePlayerCount(message.onlinePlayers);
@@ -145,6 +148,7 @@ export function useGameServer() {
   // 4. EXPORT clearMatch
   return {
     userId,
+    username,
     onlinePlayerCount,
     quickMatch,
     joinRoom,

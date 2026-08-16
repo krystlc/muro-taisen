@@ -27,12 +27,13 @@ export default function BattleScreen() {
     consumeOpponentActions,
     matchStarted,
     quickMatch,
-    userId,
+    username,
     clearMatch,
   } = useGameServerContext();
 
+  const playerName = username ?? player1.name;
   const opponentName = matchStarted
-    ? matchStarted.players.find((id) => id !== userId) || "Opponent"
+    ? matchStarted.players.find((name) => name !== username) || "Opponent"
     : player2.name;
 
   const engineRef = useRef<GameEngine | null>(null);
@@ -42,8 +43,10 @@ export default function BattleScreen() {
   // Initialize engines once match data (seed) arrives from the server (or immediately if offline)
   useEffect(() => {
     // If online match data exists, use it. Otherwise, assume offline and generate a random seed.
-    const seed = matchStarted ? matchStarted.seed.toString() : Date.now().toString();
-    
+    const seed = matchStarted
+      ? matchStarted.seed.toString()
+      : Date.now().toString();
+
     if (!engineRef.current) {
       const eng1 = new GameEngine(seed);
       engineRef.current = eng1;
@@ -197,15 +200,15 @@ export default function BattleScreen() {
   const handleFindNewMatch = () => {
     // 1. If we are in an online match, clear and search for a new one
     if (matchStarted) {
-        clearMatch();
-        setPhase("MATCHMAKING");
-        quickMatch();
+      clearMatch();
+      setPhase("MATCHMAKING");
+      quickMatch();
     } else {
-        // 2. If we are offline, just restart the engine with a new random seed
-        engineRef.current = new GameEngine(Date.now().toString());
-        setEngine(engineRef.current);
-        setGameState(engineRef.current.getState());
-        setPhase("FIGHT");
+      // 2. If we are offline, just restart the engine with a new random seed
+      engineRef.current = new GameEngine(Date.now().toString());
+      setEngine(engineRef.current);
+      setGameState(engineRef.current.getState());
+      setPhase("FIGHT");
     }
 
     // 3. Reset UI state
@@ -277,12 +280,12 @@ export default function BattleScreen() {
       <StatusBar style="light" />
 
       <View style={styles.fighterArena}>
-        <FighterRenderer name={player1.name} state={"neutral"} />
+        <FighterRenderer name={playerName} state={"neutral"} />
         <FighterRenderer name={opponentName} state={"neutral"} flipped={true} />
       </View>
 
       <View style={styles.hudBar}>
-        <VersusBar player1Name={player1.name} player2Name={opponentName} />
+        <VersusBar player1Name={playerName} player2Name={opponentName} />
       </View>
 
       <InputController

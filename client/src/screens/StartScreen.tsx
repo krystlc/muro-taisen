@@ -64,7 +64,9 @@ export default function StartScreen() {
         {/* Footer: Icons & Legal */}
         <View style={styles.footer}>
           <View style={styles.footerIcons}>
-            <Text style={styles.icon}>⚙️</Text>
+            <Pressable onPress={() => router.push("/settings")}>
+              <Text style={styles.icon}>⚙️</Text>
+            </Pressable>
             <Pressable onPress={() => router.push("/online-players")}>
               <Text style={styles.icon}>👥</Text>
             </Pressable>
