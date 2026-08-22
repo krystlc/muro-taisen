@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { AIOpponent } from "./AIOpponent";
 import { BoardGrid, BOARD_ROWS, BOARD_COLS } from "../engine/Board";
 import { GemColor, GemType } from "../models/Gem";

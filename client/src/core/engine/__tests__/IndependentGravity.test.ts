@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest/dist";
+import { describe, it, expect, beforeEach } from "vitest";
 import { GameEngine } from "../GameEngine";
 import { BOARD_COLS, BOARD_ROWS } from "../Board";
 import { GemColor, GemType } from "../../models/Gem";

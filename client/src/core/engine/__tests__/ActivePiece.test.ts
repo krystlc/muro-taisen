@@ -1,5 +1,5 @@
 // src/core/engine/ActivePiece.test.ts
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { GameEngine } from "../GameEngine";
 
 describe("Active Piece & Input Mechanics", () => {

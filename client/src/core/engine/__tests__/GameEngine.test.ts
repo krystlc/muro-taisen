@@ -1,6 +1,6 @@
 import { GameEngine } from "../GameEngine";
 import { GemColor, GemType } from "../../models/Gem";
-import { describe, beforeEach, test, expect, it } from "vitest/dist";
+import { describe, beforeEach, test, expect, it } from "vitest";
 
 describe("GameEngine Core Mechanics", () => {
   let engine: GameEngine;

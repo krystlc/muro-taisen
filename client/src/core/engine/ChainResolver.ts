@@ -68,7 +68,7 @@ export class ChainResolver {
 
         visitedCluster.forEach((k) => visitedGlobal.add(k));
 
-        if (hasCrashGem && hasNormalGem) {
+        if (hasCrashGem && cluster.length > 1) {
           cluster.forEach((item) => gemsToRemove.add(`${item.r},${item.c}`));
 
           // ONLY thaw adjacent counters. Do NOT destroy different colored normal gems.

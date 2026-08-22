@@ -1,5 +1,5 @@
 // src/core/engine/Garbage.test.ts
-import { describe, it, expect, beforeEach } from "vitest/dist";
+import { describe, it, expect, beforeEach } from "vitest";
 import { GameEngine } from "../GameEngine";
 import { BOARD_ROWS } from "../Board";
 import { GemType, GemColor } from "../../models/Gem";

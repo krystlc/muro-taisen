@@ -1,5 +1,5 @@
 // src/core/engine/__tests__/GameState.test.ts
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { GameStateValidator } from "../GameStateValidator";
 import { GemColor, GemType } from "../../models/Gem";
 import { Board } from "../Board";

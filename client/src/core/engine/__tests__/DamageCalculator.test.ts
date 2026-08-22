@@ -1,5 +1,5 @@
 // src/core/engine/DamageCalculator.test.ts
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { DamageCalculator } from "../DamageCalculator";
 
 describe("Damage & Combo Calculator", () => {

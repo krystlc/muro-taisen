@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { ChainResolver } from "../ChainResolver";
 import { Gem, GemColor, GemType } from "../../models/Gem";
 import { Board } from "../Board";
@@ -426,4 +426,45 @@ describe("Puzzle Fighter Advanced Rules & Chains", () => {
     expect(grid[2][0]).toBeNull();
     expect(grid[3][0]).toBeNull();
   });
+
+  it("should detonate when a Crash gem touches another Crash gem of the same color", () => {
+      const grid = Board.createEmptyGrid();
+
+      // Place two RED Crash gems adjacent to each other
+      grid[0][0] = { id: "crash-1", color: GemColor.RED, type: GemType.CRASH };
+      grid[0][1] = { id: "crash-2", color: GemColor.RED, type: GemType.CRASH };
+
+      const result = ChainResolver.resolveStep(grid);
+
+      // Both Crash gems should explode even without a Normal gem present
+      expect(result.gemsShattered).toBe(2);
+      expect(grid[0][0]).toBeNull();
+      expect(grid[0][1]).toBeNull();
+    });
+
+    it("should prevent a Crash gem from detonating a Normal gem if separated by a Frozen (Counter) gem of the same color", () => {
+      const grid = Board.createEmptyGrid();
+
+      // Line up: Normal -> Frozen -> Crash (all Blue, adjacent in a row)
+      grid[0][0] = { id: "norm-1", color: GemColor.BLUE, type: GemType.NORMAL };
+      grid[0][1] = {
+        id: "frozen-1",
+        color: GemColor.BLUE,
+        type: GemType.COUNTER,
+        counterValue: 3,
+      };
+      grid[0][2] = { id: "crash-1", color: GemColor.BLUE, type: GemType.CRASH };
+
+      const result = ChainResolver.resolveStep(grid);
+
+      // Expect 0 shattered because Frozen gems act as blockers/walls and do not
+      // link Crash gems to Normal gems, even if they share the same color.
+      expect(result.gemsShattered).toBe(0);
+
+      // Verify all pieces remain exactly where they were
+      expect(grid[0][0]?.id).toBe("norm-1");
+      expect(grid[0][1]?.id).toBe("frozen-1");
+      expect(grid[0][1]?.type).toBe(GemType.COUNTER);
+      expect(grid[0][2]?.id).toBe("crash-1");
+    });
 });

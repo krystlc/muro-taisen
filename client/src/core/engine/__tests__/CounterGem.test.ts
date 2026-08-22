@@ -1,5 +1,5 @@
 // src/core/engine/CounterGem.test.ts
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { GemColor, GemType } from "../../models/Gem";
 import { Board } from "../Board";
 import { ChainResolver } from "../ChainResolver";

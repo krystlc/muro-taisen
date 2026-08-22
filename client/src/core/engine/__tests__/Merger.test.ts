@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { Board } from "../Board";
 import { GemColor, GemType } from "../../models/Gem";
 import { Merger } from "../Merger";

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { useGameStore } from "../useGameStore";
 
 describe("useGameStore", () => {

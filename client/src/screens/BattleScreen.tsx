@@ -72,8 +72,10 @@ export default function BattleScreen() {
     : player2.name;
 
   const engineRef = useRef<GameEngine | null>(null);
+  const opponentEngineRef = useRef<GameEngine | null>(null);
 
   const [engine, setEngine] = useState<GameEngine | null>(null);
+  const [opponentEngine, setOpponentEngine] = useState<GameEngine | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [opponentGameState, setOpponentGameState] = useState<GameState | null>(
@@ -111,6 +113,14 @@ export default function BattleScreen() {
     engineRef.current = eng1;
     setEngine(eng1);
     setGameState(eng1.getState());
+
+    // If offline, initialize AI opponent
+    if (!matchStarted) {
+        const eng2 = new GameEngine(seed);
+        opponentEngineRef.current = eng2;
+        setOpponentEngine(eng2);
+        setOpponentGameState(eng2.getState());
+    }
 
     // 5. Reset UI states for the new match
     setMatchResult(null);
@@ -173,9 +183,16 @@ export default function BattleScreen() {
       quickMatch();
     } else {
       // 2. If we are offline, just restart the engine with a new random seed
-      engineRef.current = new GameEngine(Date.now().toString());
+      const seed = Date.now().toString();
+      engineRef.current = new GameEngine(seed);
       setEngine(engineRef.current);
       setGameState(engineRef.current.getState());
+      
+      const oppEng = new GameEngine(seed);
+      opponentEngineRef.current = oppEng;
+      setOpponentEngine(oppEng);
+      setOpponentGameState(oppEng.getState());
+      
       setPhase("FIGHT");
     }
 
@@ -232,6 +249,9 @@ export default function BattleScreen() {
 
       // 3. Tick physics
       engine.tick(deltaMs);
+      if (opponentEngine) {
+        opponentEngine.tick(deltaMs);
+      }
 
       const newState = engine.getState();
 
@@ -250,6 +270,9 @@ export default function BattleScreen() {
       // 4. Throttled UI update (30 FPS)
       if (now - lastRenderTimeRef.current > 33) {
         setGameState({ ...newState });
+        if (!matchStarted && opponentEngine) {
+          setOpponentGameState(opponentEngine.getState());
+        }
         lastRenderTimeRef.current = now;
       }
 
@@ -264,11 +287,12 @@ export default function BattleScreen() {
         lastScoreRef.current = newState.score;
       }
 
-      // 6. Throttled Broadcast (every 200ms)
-      if (now - lastBroadcastRef.current > 200) {
-        sendGameAction({ type: "STATE_SYNC", payload: engine.getSnapshot() });
+      // 6. Throttled Broadcast (every 200ms) - only if in online match
+      if (matchStarted && now - lastBroadcastRef.current > 200) {
+        sendGameAction({ type: 'STATE_SYNC', payload: engine.getSnapshot() });
         lastBroadcastRef.current = now;
       }
+
 
       requestRef.current = requestAnimationFrame(loop);
     };
@@ -334,7 +358,9 @@ export default function BattleScreen() {
           setGameState({ ...engine.getState() });
 
           // 3. Send to network
-          sendGameAction(action);
+          if (matchStarted) {
+            sendGameAction(action);
+          }
         }}
       >
         <View style={styles.puzzleArea}>

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest/dist";
+import { describe, it, expect } from "vitest";
 import { BoardGrid, BOARD_ROWS, BOARD_COLS } from "../Board";
 import { GemColor, GemType } from "../../models/Gem";
 import { ChainResolver } from "../ChainResolver";
