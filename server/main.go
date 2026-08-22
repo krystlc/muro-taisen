@@ -208,6 +208,8 @@ func (c *Client) readPump() {
 		switch req.Type {
 		case "QUICK_MATCH":
 			hub.handleQuickMatch(c)
+		case "LEAVE_ROOM":
+			hub.handleLeaveRoom(c)
 		case "GAME_ACTION":
 			hub.handleGameAction(c, req.Action)
 		}
@@ -342,6 +344,12 @@ func (hub *GameHub) broadcastGlobalState() {
 		default:
 		}
 	}
+}
+
+func (hub *GameHub) handleLeaveRoom(c *Client) {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	hub.removeFromRoomLocked(c)
 }
 
 func (hub *GameHub) removeFromQueueLocked(target *Client) {

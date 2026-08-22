@@ -141,6 +141,11 @@ export function useGameServer() {
     sendSafe({ type: "JOIN_ROOM", roomId });
   };
 
+  const leaveRoom = () => {
+    clearMatch();
+    sendSafe({ type: "LEAVE_ROOM" });
+  };
+
   const sendGameAction = (action: GameAction) => {
     sendSafe({ type: "GAME_ACTION", action });
   };
@@ -152,6 +157,7 @@ export function useGameServer() {
     onlinePlayerCount,
     quickMatch,
     joinRoom,
+    leaveRoom,
     sendGameAction,
     consumeOpponentActions,
     matchStarted,

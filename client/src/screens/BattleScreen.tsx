@@ -63,6 +63,7 @@ export default function BattleScreen() {
     quickMatch,
     username,
     clearMatch,
+    leaveRoom,
   } = useGameServerContext();
 
   const playerName = username ?? player1.name;
@@ -167,7 +168,7 @@ export default function BattleScreen() {
   const handleFindNewMatch = useCallback(() => {
     // 1. If we are in an online match, clear and search for a new one
     if (matchStarted) {
-      clearMatch();
+      leaveRoom();
       setPhase("MATCHMAKING");
       quickMatch();
     } else {
