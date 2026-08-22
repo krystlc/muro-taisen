@@ -18,6 +18,39 @@ import {
 } from "../components/game-ui/BattleComponents";
 import { useRouter } from "expo-router";
 
+function getCompositeGrid(
+  grid: any[][] | undefined,
+  activePiece: any | null | undefined,
+): any[][] {
+  if (!grid) return Board.createEmptyGrid();
+
+  const displayGrid = grid.map((row) => [...row]);
+  if (activePiece) {
+    const [pivotRow, pivotCol] = [activePiece.row, activePiece.column];
+    const offsets: Record<number, [number, number]> = {
+      0: [1, 0],
+      90: [0, 1],
+      180: [-1, 0],
+      270: [0, -1],
+    };
+    const [rOff, cOff] = offsets[activePiece.rotation] || [1, 0];
+    if (
+      pivotRow >= 0 &&
+      pivotRow < BOARD_ROWS &&
+      pivotCol >= 0 &&
+      pivotCol < BOARD_COLS
+    ) {
+      displayGrid[pivotRow][pivotCol] = activePiece.gems[0];
+    }
+    const pRow = pivotRow + rOff;
+    const pCol = pivotCol + cOff;
+    if (pRow >= 0 && pRow < BOARD_ROWS && pCol >= 0 && pCol < BOARD_COLS) {
+      displayGrid[pRow][pCol] = activePiece.gems[1];
+    }
+  }
+  return displayGrid;
+}
+
 export default function BattleScreen() {
   const player1 = useGameStore((state) => state.player1);
   const player2 = useGameStore((state) => state.player2);
@@ -41,22 +74,6 @@ export default function BattleScreen() {
 
   const [engine, setEngine] = useState<GameEngine | null>(null);
 
-  // Initialize engines once match data (seed) arrives from the server (or immediately if offline)
-  useEffect(() => {
-    // If online match data exists, use it. Otherwise, assume offline and generate a random seed.
-    const seed = matchStarted
-      ? matchStarted.seed.toString()
-      : Date.now().toString();
-
-    if (!engineRef.current) {
-      const eng1 = new GameEngine(seed);
-      engineRef.current = eng1;
-      setEngine(eng1);
-      setGameState(eng1.getState());
-      setPhase("FIGHT");
-    }
-  }, [matchStarted]);
-
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [opponentGameState, setOpponentGameState] = useState<GameState | null>(
     null,
@@ -69,6 +86,69 @@ export default function BattleScreen() {
   >(null);
 
   const lastScoreRef = useRef(0);
+  const initializedMatchSeedRef = useRef<string | null>(null);
+  const timeoutsRef = useRef<number[]>([]);
+  const matchResultRef = useRef<"WIN" | "LOSS" | "OPPONENT_LEFT" | null>(null);
+
+  // Consolidated Match Initialization and Countdown Sequence
+  useEffect(() => {
+    // 1. Determine current seed
+    const seed = matchStarted
+      ? matchStarted.seed.toString()
+      : "offline_" + Date.now().toString();
+
+    // 2. Prevent double-initialization for the same match/seed
+    if (initializedMatchSeedRef.current === seed) return;
+    initializedMatchSeedRef.current = seed;
+
+    // 3. Clear any pending countdown timeouts from previous matches
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+
+    // 4. Initialize engine
+    const eng1 = new GameEngine(seed);
+    engineRef.current = eng1;
+    setEngine(eng1);
+    setGameState(eng1.getState());
+
+    // 5. Reset UI states for the new match
+    setMatchResult(null);
+    matchResultRef.current = null;
+    setOpponentGameState(null);
+
+    if (matchStarted) {
+      // Online Match -> Perform Countdown Sequence
+      setPhase("READY");
+
+      const runSequence = () => {
+        const delays = ["3", "2", "1", "FIGHT"];
+        let currentDelayIndex = 0;
+
+        const nextStep = () => {
+          if (currentDelayIndex < delays.length) {
+            setPhase(delays[currentDelayIndex] as any);
+            currentDelayIndex++;
+            const t = setTimeout(nextStep, 600);
+            timeoutsRef.current.push(t as any);
+          }
+        };
+
+        const firstTimeout = setTimeout(nextStep, 600);
+        timeoutsRef.current.push(firstTimeout as any);
+      };
+
+      runSequence();
+    } else {
+      // Offline Match -> Fight instantly
+      setPhase("FIGHT");
+    }
+
+    // Cleanup: Clear all timeouts if unmounted or match resets
+    return () => {
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+    };
+  }, [matchStarted]);
 
   // 1. Auto-trigger quick match on mount if not already playing
   useEffect(() => {
@@ -77,39 +157,10 @@ export default function BattleScreen() {
     }
   }, [matchStarted, quickMatch, phase]);
 
-  // 2. Initialize engines and trigger countdown when a match is found
-  useEffect(() => {
-    if (matchStarted) {
-      const eng1 = new GameEngine(matchStarted.seed.toString());
-      engineRef.current = eng1;
-      setEngine(eng1);
-      setGameState(eng1.getState());
-
-      // Reset match result in case this is a subsequent match
-      setMatchResult(null);
-      matchResultRef.current = null;
-      setOpponentGameState(null); // Clear stale opponent state
-
-      const sequence = async () => {
-        setPhase("READY");
-        await new Promise((r) => setTimeout(r, 600));
-        setPhase("3");
-        await new Promise((r) => setTimeout(r, 600));
-        setPhase("2");
-        await new Promise((r) => setTimeout(r, 600));
-        setPhase("1");
-        await new Promise((r) => setTimeout(r, 600));
-        setPhase("FIGHT");
-      };
-      sequence();
-    }
-  }, [matchStarted]);
-
-  const matchResultRef = useRef<"WIN" | "LOSS" | "OPPONENT_LEFT" | null>(null);
-
   // 3. Main Game Loop Tick
   const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(Date.now());
+  const lastRenderTimeRef = useRef<number>(Date.now());
   const lastBroadcastRef = useRef<number>(Date.now());
 
   const router = useRouter();
@@ -137,6 +188,7 @@ export default function BattleScreen() {
     if (phase !== "FIGHT" || !engine) return;
 
     lastTimeRef.current = Date.now();
+    lastRenderTimeRef.current = Date.now();
     lastBroadcastRef.current = Date.now();
 
     const loop = () => {
@@ -194,9 +246,13 @@ export default function BattleScreen() {
         return; // Stop loop
       }
 
-      setGameState({ ...newState });
+      // 4. Throttled UI update (30 FPS)
+      if (now - lastRenderTimeRef.current > 33) {
+        setGameState({ ...newState });
+        lastRenderTimeRef.current = now;
+      }
 
-      // 4. Handle garbage output
+      // 5. Handle garbage output
       if (newState.score > lastScoreRef.current) {
         const scoreDiff = newState.score - lastScoreRef.current;
         const garbageLines = Math.max(1, Math.floor(scoreDiff / 2));
@@ -207,7 +263,7 @@ export default function BattleScreen() {
         lastScoreRef.current = newState.score;
       }
 
-      // 5. Throttled Broadcast (every 200ms)
+      // 6. Throttled Broadcast (every 200ms)
       if (now - lastBroadcastRef.current > 200) {
         sendGameAction({ type: "STATE_SYNC", payload: engine.getSnapshot() });
         lastBroadcastRef.current = now;
@@ -238,59 +294,11 @@ export default function BattleScreen() {
     return <View style={styles.container} />;
   }
 
-  const displayGrid = gameState.grid.map((row) => [...row]);
-  const activePiece = gameState.activePiece;
-  if (activePiece) {
-    const [pivotRow, pivotCol] = [activePiece.row, activePiece.column];
-    const offsets: Record<number, [number, number]> = {
-      0: [1, 0],
-      90: [0, 1],
-      180: [-1, 0],
-      270: [0, -1],
-    };
-    const [rOff, cOff] = offsets[activePiece.rotation] || [1, 0];
-    if (
-      pivotRow >= 0 &&
-      pivotRow < BOARD_ROWS &&
-      pivotCol >= 0 &&
-      pivotCol < BOARD_COLS
-    ) {
-      displayGrid[pivotRow][pivotCol] = activePiece.gems[0];
-    }
-    const pRow = pivotRow + rOff;
-    const pCol = pivotCol + cOff;
-    if (pRow >= 0 && pRow < BOARD_ROWS && pCol >= 0 && pCol < BOARD_COLS) {
-      displayGrid[pRow][pCol] = activePiece.gems[1];
-    }
-  }
-
-  // Build Opponent Composite View Grid
-  const displayOpponentGrid =
-    opponentGameState?.grid.map((row) => [...row]) || Board.createEmptyGrid();
-  const opActivePiece = opponentGameState?.activePiece;
-  if (opActivePiece) {
-    const [pivotRow, pivotCol] = [opActivePiece.row, opActivePiece.column];
-    const offsets: Record<number, [number, number]> = {
-      0: [1, 0],
-      90: [0, 1],
-      180: [-1, 0],
-      270: [0, -1],
-    };
-    const [rOff, cOff] = offsets[opActivePiece.rotation] || [1, 0];
-    if (
-      pivotRow >= 0 &&
-      pivotRow < BOARD_ROWS &&
-      pivotCol >= 0 &&
-      pivotCol < BOARD_COLS
-    ) {
-      displayOpponentGrid[pivotRow][pivotCol] = opActivePiece.gems[0];
-    }
-    const pRow = pivotRow + rOff;
-    const pCol = pivotCol + cOff;
-    if (pRow >= 0 && pRow < BOARD_ROWS && pCol >= 0 && pCol < BOARD_COLS) {
-      displayOpponentGrid[pRow][pCol] = opActivePiece.gems[1];
-    }
-  }
+  const displayGrid = getCompositeGrid(gameState.grid, gameState.activePiece);
+  const displayOpponentGrid = getCompositeGrid(
+    opponentGameState?.grid,
+    opponentGameState?.activePiece,
+  );
 
   return (
     <View style={styles.container}>
